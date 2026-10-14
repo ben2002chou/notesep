@@ -9,7 +9,7 @@ from .assets import download, verify, PROFILES
 def main(argv=None):
     parser = argparse.ArgumentParser(description="NoteSep music editing tools")
     sub = parser.add_subparsers(dest='command', required=True)
-    for command, help_text in [('download', 'Download pinned weights (requires HF access during preparation)'),
+    for command, help_text in [('download', 'Download the paper checkpoint pair'),
                                ('verify', 'Verify checkpoint SHA-256 values')]:
         item = sub.add_parser(command, help=help_text)
         item.add_argument('--profile', choices=list(PROFILES))

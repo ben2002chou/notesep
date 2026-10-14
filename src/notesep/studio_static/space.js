@@ -217,7 +217,7 @@ function updateTranscriptionPrivacy(){
   const isMuScriptor=provider.startsWith('muscriptor');
   ui.instrumentHintChoice.hidden=!isMuScriptor||Boolean(ui.midi.files?.length);
   if(provider==='muscriptor_public')ui.transcriptionPrivacy.innerHTML='Only the selected edit window is sent to the <a href="https://muscriptor.kyutai.org/" target="_blank" rel="noopener noreferrer">public MuScriptor service</a>; its FAQ says uploaded audio is not kept afterwards. If you choose cross-check, the same window is also sent to public YourMT3+.';
-  else if(provider==='muscriptor_local')ui.transcriptionPrivacy.textContent='Only the selected edit window is sent to this private Space’s MuScriptor model. If you choose cross-check, the same window is also sent to public YourMT3+.';
+  else if(provider==='muscriptor_local')ui.transcriptionPrivacy.textContent='Only the selected edit window is sent to this Space’s MuScriptor model. If you choose cross-check, the same window is also sent to public YourMT3+.';
   else ui.transcriptionPrivacy.innerHTML='Only the selected edit window is sent to the public <a href="https://huggingface.co/spaces/mimbres/YourMT3" target="_blank" rel="noopener noreferrer">YourMT3+ Space</a>. If you choose cross-check, the same window is also sent to public MuScriptor.';
 }
 function partialPartSelection(){return state.currentPart!=='all'&&new Set(state.allNotes.map(n=>n.partId||'all')).size>1;}
@@ -263,7 +263,7 @@ async function transcribeDraft(){
   if(provider==='muscriptor_local'&&!config.privateMuscriptorReady)throw new Error(`${config.message||'Private MuScriptor is not available.'} Choose a public transcription service instead.`);
   const instrument=provider.startsWith('muscriptor')?ui.instrumentHint.value:'';
   showProgress(`Drafting score with ${providerLabel}`);
-  report(provider==='muscriptor_local'?'MuScriptor is drafting notes inside this private Space…':provider==='muscriptor_public'?'Sending only the selected window to the public MuScriptor service…':'YourMT3+ is making a first-pass draft from the selected window.');
+  report(provider==='muscriptor_local'?'MuScriptor is drafting notes here…':provider==='muscriptor_public'?'Sending only the selected window to the public MuScriptor service…':'YourMT3+ is making a first-pass draft from the selected window.');
   let output;
   try{output=await call('transcribe',{session:state.session,instrument,provider});}
   catch(error){offerAlternateProvider(true);throw new Error(transcriptionFailureMessage(error));}

@@ -1,4 +1,4 @@
-"""Private NoteSep Space: real score-query inference and direct-sum note editing."""
+"""NoteSep Studio: score-query inference and direct-sum note editing."""
 from __future__ import annotations
 
 import base64
@@ -155,7 +155,7 @@ async def public_config():
         {"id": "muscriptor_public", "label": "MuScriptor · public"},
     ]
     if MUSCRIPTOR is not None:
-        providers.append({"id": "muscriptor_local", "label": "MuScriptor · private Space"})
+        providers.append({"id": "muscriptor_local", "label": "MuScriptor · on this Space"})
     return JSONResponse({
         "provider": "MuScriptor" if is_muscriptor else "YourMT3+",
         "defaultProvider": (("muscriptor_local" if MUSCRIPTOR is not None else "muscriptor_public")
@@ -306,7 +306,7 @@ def _transcribe_private_muscriptor(folder: Path, duration: float, instrument: st
     midi_data = local_midi(MUSCRIPTOR, folder / 'input.wav', instrument)
     return {"notes": midi_notes(midi_data, duration),
             "rawMidiNoteEvents": midi_note_event_count(midi_data),
-            "provider": "MuScriptor · private Space", "instrument": instrument or "",
+            "provider": "MuScriptor · on this Space", "instrument": instrument or "",
             'provenance': MUSCRIPTOR_IDENTITY}
 
 

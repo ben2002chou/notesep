@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "notesep"
 version = "0.1.0"
 description = "Score-informed note separation and music editing"
-license = {text = "AGPL-3.0-only"}
+license = "AGPL-3.0-only"
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.26,<2", "scipy>=1.10,<1.17", "soundfile>=0.13,<0.15",

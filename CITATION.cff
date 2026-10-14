@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+message: "If you use NoteSep in research, please cite this paper."
+title: NoteSep
+type: software
+repository-code: https://github.com/ben2002chou/notesep
+url: https://benschou.com/notesep/
+preferred-citation:
+  type: article
+  title: "On a Separate Note: Robust Score-Informed Note Separation with a Two-Stream TFC-TDF U-Net and Adaptive Set Ownership"
+  doi: 10.48550/arXiv.2609.29071
+  url: https://arxiv.org/abs/2609.29071
+  year: 2026
+  authors:
+    - family-names: Chou
+      given-names: Benjamin Shiue-Hal
+    - family-names: Jajal
+      given-names: Purvish
+    - family-names: Eliopoulos
+      given-names: Nicholas John
+    - family-names: Davis
+      given-names: James C.
+    - family-names: Thiruvathukal
+      given-names: George K.
+    - family-names: Yun
+      given-names: Kristen Yeon-Ji
+    - family-names: Dong
+      given-names: Hao-Wen
+    - family-names: Lu
+      given-names: Yung-Hsiang
+authors:
+  - family-names: Chou
+    given-names: Benjamin Shiue-Hal
+  - family-names: Jajal
+    given-names: Purvish
+  - family-names: Eliopoulos
+    given-names: Nicholas John
+  - family-names: Davis
+    given-names: James C.
+  - family-names: Thiruvathukal
+    given-names: George K.
+  - family-names: Yun
+    given-names: Kristen Yeon-Ji
+  - family-names: Dong
+    given-names: Hao-Wen
+  - family-names: Lu
+    given-names: Yung-Hsiang
