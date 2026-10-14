@@ -279,9 +279,9 @@ async function transcribeDraft(){
   if(rawNotes.length){
     const partCount=new Set(rawNotes.map(note=>note.partId).filter(Boolean)).size;
     const hint=instrument?` Instrument hint: ${ui.instrumentHint.selectedOptions[0]?.textContent}.`:'';
-    const filtered=filteredEvents?` ${filteredEvents} raw MIDI events were outside the editor's supported pitch, time, or 40 ms duration limits; check for omitted notes.`:'';
+    const filtered=filteredEvents?` ${filteredEvents} raw MIDI events could not be placed in this edit window; check for omitted notes.`:'';
     report(`${output.audioCheck?.summary||`${providerLabel} drafted ${rawNotes.length} notes. Check pitches and timing against the spectrogram before separation.`}${filtered}${partCount>1?` All detected parts are shown. Use the part selector to focus on one instrument.`:''}${hint}`);
-  }else if(rawMidiEvents>0){offerAlternateProvider(true);report(`${providerLabel} returned ${rawMidiEvents} MIDI note events, but none were usable within the editor's pitch, time, and 40 ms duration limits. Try the other transcriber, use aligned MIDI, or add notes manually.`,true);}
+  }else if(rawMidiEvents>0){offerAlternateProvider(true);report(`${providerLabel} returned ${rawMidiEvents} MIDI note events, but none could be placed in this edit window. Try the other transcriber, use aligned MIDI, or add notes manually.`,true);}
   else{offerAlternateProvider(true);report(`No notes came back from ${providerLabel}.${instrument?' Try Automatic / all parts, add notes manually, or import aligned MIDI.':' Add notes manually, import aligned MIDI, or try another excerpt.'}`,true);}
 }
 async function busy(work,action='other'){

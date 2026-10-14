@@ -8,11 +8,13 @@ from pathlib import Path
 import mido
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from notesep.score_io import midi_note_event_count, midi_notes, midi_notes_in_window
+from notesep.inference import validate_notes
+from notesep.score_io import (midi_note_event_count, midi_notes, midi_notes_in_window,
+                              score_notes_in_window)
 
 
 class MidiScoreTests(unittest.TestCase):
-    def test_counts_raw_events_filtered_by_editor_minimum_duration(self):
+    def test_short_midi_note_survives_import_and_inference_validation(self):
         midi = mido.MidiFile(ticks_per_beat=480)
         track = mido.MidiTrack()
         track.append(mido.Message("note_on", channel=0, note=60, velocity=80, time=0))
@@ -27,7 +29,33 @@ class MidiScoreTests(unittest.TestCase):
 
         data = output.getvalue()
         self.assertEqual(midi_note_event_count(data), 2)
-        self.assertEqual([note["pitch"] for note in midi_notes(data, duration=2)], [64])
+        notes = midi_notes(data, duration=2)
+        self.assertEqual([note["pitch"] for note in notes], [60, 64])
+        self.assertAlmostEqual(notes[0]["end"] - notes[0]["start"], .025)
+        self.assertEqual(len(validate_notes(notes, duration=2)), 2)
+
+    def test_short_midi_and_json_notes_survive_window_clipping(self):
+        midi = mido.MidiFile(ticks_per_beat=480)
+        track = mido.MidiTrack()
+        track.append(mido.Message("note_on", channel=0, note=60, velocity=80, time=480))
+        track.append(mido.Message("note_off", channel=0, note=60, velocity=0, time=29))
+        midi.tracks.append(track)
+        output = io.BytesIO()
+        midi.save(file=output)
+
+        midi_score = midi_notes_in_window(output.getvalue(), source_duration=2,
+                                          window_start=.52, window_duration=.5)
+        json_score = score_notes_in_window([{"id": "short", "pitch": 60,
+                                            "start": .5, "end": .530208}], 2, .52, .5)
+        self.assertEqual(len(midi_score), 1)
+        self.assertEqual(len(json_score), 1)
+        self.assertAlmostEqual(midi_score[0]["end"] - midi_score[0]["start"], .010208, places=5)
+        self.assertEqual(len(validate_notes(midi_score, duration=.5)), 1)
+
+    def test_note_must_span_an_audio_sample(self):
+        self.assertEqual(len(validate_notes([{"pitch": 60, "start": .1, "end": .1001}], 1)), 1)
+        with self.assertRaisesRegex(ValueError, "one audio sample"):
+            validate_notes([{"pitch": 60, "start": .1, "end": .10001}], 1)
 
     def test_keeps_instrument_parts_and_absolute_timing(self):
         midi = mido.MidiFile(ticks_per_beat=480)

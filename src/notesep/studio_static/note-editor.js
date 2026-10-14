@@ -622,15 +622,15 @@ els.grid.addEventListener('pointerdown',event=>{
   const x=clamp(event.clientX-bounds.left,0,model.width);
   const y=clamp(event.clientY-bounds.top,0,bounds.height-1);
   const pitch=clamp(model.pitchMax-Math.floor(y/model.rowHeight),model.pitchMin,model.pitchMax);
-  const onset=clamp(Math.round(timeFor(x)*20)/20,0,model.example.duration-.05);
+  const onset=clamp(Math.round(timeFor(x)*100)/100,0,model.example.duration-.01);
   const note={id:crypto.randomUUID(),pitch,start:onset,end:Math.min(model.example.duration,onset+.25),delta:0,pitchShift:0,stretch:1,gainDb:0};
   model.notes.push(note);model.selected=note;renderNotes();updateControls();
   els.grid.setPointerCapture(event.pointerId);
   const move=e=>{
-    const seconds=Math.round(timeFor(clamp(e.clientX-bounds.left,0,model.width))*20)/20;
+    const seconds=Math.round(timeFor(clamp(e.clientX-bounds.left,0,model.width))*100)/100;
     if(Math.abs(e.clientX-event.clientX)<4)return;
-    note.start=clamp(Math.min(onset,seconds),0,model.example.duration-.05);
-    note.end=clamp(Math.max(onset,seconds),note.start+.05,model.example.duration);
+    note.start=clamp(Math.min(onset,seconds),0,model.example.duration-.01);
+    note.end=clamp(Math.max(onset,seconds),note.start+.01,model.example.duration);
     renderNotes();updateControls();
   };
   const end=()=>{

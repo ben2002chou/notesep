@@ -1,7 +1,8 @@
 export function scoreValues(pitch,start,end,duration){
   if(!Number.isInteger(pitch)||pitch<21||pitch>108)throw new Error('Use a MIDI pitch from 21 to 108.');
-  if(![start,end,duration].every(Number.isFinite)||start<0||end>duration||end-start<.04-1e-9)
-    throw new Error('Keep the note inside the window and at least 40 ms long.');
+  if(![start,end,duration].every(Number.isFinite)||start<0||end>duration||
+      Math.round(end*16000)<=Math.round(start*16000))
+    throw new Error('Keep the note inside the window with a positive duration at 16 kHz.');
   return {pitch,start,end};
 }
 
