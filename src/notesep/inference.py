@@ -106,8 +106,10 @@ def validate_notes(notes: list[dict], duration: float) -> list[dict]:
                for value in (start, end)):
             raise ValueError(f"Note {index + 1} has invalid timing")
         start, end = float(start), float(end)
-        if not 0 <= start < end <= duration + .001 or end - start < .04:
-            raise ValueError(f"Note {index + 1} must last at least 40 ms within the excerpt")
+        if not 0 <= start < end <= duration + .001:
+            raise ValueError(f"Note {index + 1} must have positive duration within the excerpt")
+        if round(min(end, duration) * RATE) <= round(start * RATE):
+            raise ValueError(f"Note {index + 1} must span at least one audio sample within the excerpt")
         result.append({"id": str(item.get("id", index)), "pitch": pitch,
                        "start": start, "end": min(end, duration)})
     return result

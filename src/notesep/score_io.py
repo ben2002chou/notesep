@@ -96,7 +96,7 @@ def midi_notes(data: bytes, duration: float, *, max_notes: int | None = MAX_SCOR
             continue
         start, program = active[key].popleft()
         end = min(seconds, duration)
-        if not (21 <= message.note <= 108 and start < duration and end - start >= .04):
+        if not (21 <= message.note <= 108 and start < duration and end > start):
             continue
         part_key = (track_index, message.channel, program)
         track_name = track_names.get(track_index, "")
@@ -104,7 +104,7 @@ def midi_notes(data: bytes, duration: float, *, max_notes: int | None = MAX_SCOR
         part = track_name or fallback
         part_names[part_key] = part
         notes.append({"id": str(len(notes)), "event": len(notes), "pitch": message.note,
-                      "start": round(start, 4), "end": round(end, 4),
+                      "start": round(start, 6), "end": round(end, 6),
                       "partId": f"{track_index}:{message.channel}:{program}", "part": part})
         if max_notes is not None and len(notes) > max_notes:
             raise ValueError(f"The score has more than {max_notes} notes. Upload a shorter excerpt or a single instrument part.")
@@ -139,10 +139,10 @@ def midi_notes_in_window(data: bytes, source_duration: float,
             continue
         clipped_start = max(note["start"], window_start) - window_start
         clipped_end = min(note["end"], window_end) - window_start
-        if clipped_end - clipped_start < .04:
+        if clipped_end <= clipped_start:
             continue
-        selected.append({**note, "start": round(clipped_start, 4),
-                         "end": round(clipped_end, 4)})
+        selected.append({**note, "start": round(clipped_start, 6),
+                         "end": round(clipped_end, 6)})
     if len(selected) > MAX_SCORE_NOTES:
         raise ValueError(f"The selected window contains more than {MAX_SCORE_NOTES} MIDI notes. Shorten the window or choose one instrument part.")
     selected.sort(key=lambda note: (note["start"], note["pitch"], note["partId"]))
@@ -179,7 +179,7 @@ def score_notes_in_window(notes: list[dict], source_duration: float,
             continue
         left = max(start, window_start) - window_start
         right = min(end, window_start + window_duration) - window_start
-        if right - left < .04:
+        if right <= left:
             continue
         selected.append({**note, 'id': identifier, 'start': left, 'end': right})
     if len(selected) > 96:
