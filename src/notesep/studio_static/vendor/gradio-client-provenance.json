@@ -1,0 +1,8 @@
+{
+  "package": "@gradio/client",
+  "version": "2.7.0",
+  "license": "ISC",
+  "archive_url": "https://registry.npmjs.org/@gradio/client/-/client-2.7.0.tgz",
+  "archive_sha256": "44584473480cb9a79096de791dbc192bb28ad88f7d6aaacf58fe85dd9051f9fd",
+  "bundle_sha256": "f2b0538d73fe8326dd892f76ea6aa4ae0aac69f835f7a74b77f5e6827a7f06f2"
+}
