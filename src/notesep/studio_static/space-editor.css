@@ -1,0 +1,7 @@
+.piece-picker { display: none !important; }
+.toolbar-actions { margin-left: auto; }
+.score-note-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 16px 0; }
+.score-note-fields[hidden] { display: none; }
+.score-note-fields label { display: grid; gap: 6px; font-size: 13px; color: #c8d7e5; }
+.score-note-fields input { width: 100px; background: #111d28; border: 1px solid #58718d; border-radius: 6px; color: #eef7ff; padding: 8px; }
+.score-note-fields button { background: #203044; border: 1px solid #58718d; border-radius: 7px; color: #c8e6fc; padding: 9px 12px; }

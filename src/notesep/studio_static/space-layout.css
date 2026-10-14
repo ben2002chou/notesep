@@ -1,0 +1,89 @@
+[hidden] { display: none !important; }
+.score-actions #separate { margin-left: auto; background: #83c7f3; color: #0f1b2b; border-color: #83c7f3; font-weight: 850; }
+.score-actions #separate:hover:not(:disabled) { background: #a3dcff; border-color: #a3dcff; }
+.score-actions #add-note[aria-pressed="true"] { background: #344f66; border-color: #83c7f3; color: #c5e6fc; }
+.score-status{display:flex;flex-wrap:wrap;gap:5px 17px;align-items:center;margin:-2px 0 14px;color:#b2c6d8;font-size:12px;line-height:1.4}
+.score-status #note-count{color:#e9f2fc;font-weight:750}
+.score-status #status{flex-basis:100%;margin:0;color:#bfd9ee}
+.score-status.audio-review #separation-hint{color:#f1c987;font-weight:700}
+.score-actions #cross-check{border-color:#6d86a2;color:#d6e9f8}
+.score-actions #cross-check:hover:not(:disabled){background:#293c51}
+.cross-check-result{margin:0 0 14px;padding:14px 16px;border:1px solid #536b86;border-radius:10px;background:#172536;color:#e1edf8;font-size:13px;line-height:1.5}
+.cross-check-result strong{display:block;color:#f2d28f}
+.cross-check-result p{margin:5px 0 0;color:#aebfd1}
+.cross-check-result ul{margin:8px 0 0;padding-left:22px;color:#f2d28f}
+.cross-check-result li+li{margin-top:3px}
+.cross-check-result li button{margin-left:8px;border:1px solid #8199b3;border-radius:6px;padding:3px 8px;background:#22364b;color:#e7f1fc;font:inherit;font-size:11px;font-weight:700}
+.cross-check-result li button:hover{background:#2d4963}
+.score-review-gate{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:14px 24px;align-items:center;margin:0 0 14px;padding:13px 16px;border:1px solid #8a7147;border-radius:10px;background:#28251e;color:#f1e4ca;font-size:13px;line-height:1.45}
+.score-review-gate[hidden]{display:none!important}
+.score-review-gate strong{color:#f4d59a}
+.score-review-gate p{margin:4px 0 0;color:#d0c4ae}
+.score-review-gate label{display:flex;gap:10px;align-items:flex-start;color:#f5eddf;font-weight:700;cursor:pointer}
+.score-review-gate input{width:18px;height:18px;flex:none;margin:1px 0 0;accent-color:#e9bf73}
+.score-review-gate:has(input:checked){border-color:#739a86;background:#1d2a27}
+.score-review-gate:has(input:checked) strong{color:#b9e3ca}
+@media(max-width:790px){.score-review-gate{grid-template-columns:1fr;gap:10px;padding:12px}}
+.file-choice.drag-over { border-color: #a7d9ff; background: #263b53; }
+.example-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+.example-actions button { color: #c8e6fc; background: #203044; border: 1px solid #58718d; border-radius: 8px; padding: 10px 14px; }
+.example-actions small { color: #aebccd; }
+.source-preview {
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) minmax(420px, 1.4fr);
+  gap: 18px 26px;
+  align-items: end;
+  margin-top: 20px;
+  padding: 18px 20px;
+  border: 1px solid #364356;
+  border-radius: 12px;
+  background: #101925;
+}
+.source-preview[hidden] { display: none !important; }
+.source-preview-player, .source-window-controls label {
+  display: grid;
+  gap: 8px;
+  color: #d7e3f0;
+  font-size: 13px;
+  font-weight: 700;
+}
+.source-preview-player audio { width: 100%; min-width: 0; }
+.source-window-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.source-window-controls label { min-width: 122px; flex: 1; }
+.source-window-controls input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #516178;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #202e40;
+  color: #f1f6fc;
+}
+.source-window-controls button {
+  min-height: 40px;
+  border: 1px solid #516178;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #202e40;
+  color: #e5eef8;
+  font-weight: 650;
+}
+.source-window-controls button:hover { border-color: #96cfff; }
+.source-preview > p {
+  grid-column: 1 / -1;
+  margin: -6px 0 0;
+  color: #9fb0c2;
+  font-size: 12px;
+  line-height: 1.5;
+}
+@media (max-width: 790px) {
+  .source-preview { grid-template-columns: 1fr; padding: 16px 13px; }
+  .source-window-controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .source-window-controls button { grid-column: 1 / -1; }
+  .source-preview > p { grid-column: 1; margin: 0; }
+}

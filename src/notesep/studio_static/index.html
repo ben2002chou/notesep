@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NoteSep Studio · separate, shape, listen</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/space.css?v=20260925-provider1">
+  <link rel="stylesheet" href="/static/space-layout.css?v=20260926-review1">
+  <link rel="stylesheet" href="/static/upload-feedback.css?v=20260926-progress1">
+</head>
+<body>
+  <div class="shell">
+    <header class="site-header">
+      <a class="wordmark" href="/">NOTE<span>SEP</span><i></i> STUDIO</a>
+      <a href="https://benschou.com/icassp-2027-note-separation/" target="_blank" rel="noopener noreferrer">Explore the official audio demo ↗</a>
+    </header>
+    <section class="hero">
+      <p class="eyebrow">SCORE-INFORMED NOTE SEPARATION</p>
+      <h1>Hear the note.<br><em>Shape the music.</em></h1>
+      <p class="lede">Load a full recording, mark the rough edit window, then check its first-pass score against the spectrogram. Correct and separate the notes you want to reshape.</p>
+      <div class="flow" aria-label="Workflow"><span><b>01</b> Upload</span><span class="arrow">→</span><span><b>02</b> Correct the score</span><span class="arrow">→</span><span><b>03</b> Separate &amp; edit</span></div>
+    </section>
+    <section id="native-controls" class="card" hidden>
+      <strong>DAW passage</strong>
+      <label>Recording starts in DAW (s)<input id="native-recording-start" type="number" min="0" step="0.01" value="0"></label>
+      <button id="native-send" type="button" disabled>Send edited passage to DAW</button>
+      <p>The rendered notes replace this track's selected window. Keep the source score complete when preserving the full mix.</p>
+    </section>
+    <main>
+      <details id="project-panel" class="card">
+        <summary id="project-title">Reopen a saved project</summary>
+        <p>Load the note-stem/project ZIP to continue editing. Add an edit-settings JSON to restore your saved changes.</p>
+        <label>NoteSep project ZIP<input id="project-file" type="file" accept=".zip"></label>
+        <label>Edit settings (optional)<input id="project-settings-file" type="file" accept=".json"></label>
+        <button id="restore-project" type="button" disabled>Open editable notes</button>
+        <label id="project-joint-choice" hidden><input id="project-joint" type="checkbox">Use joint NoteSep when the restored score covers every part</label>
+      </details>
+      <section class="card upload-card" aria-labelledby="upload-title">
+        <div class="card-heading"><div><p class="eyebrow">01 / EDIT WINDOW</p><h2 id="upload-title">Choose a recording</h2></div><p>Upload up to 5 minutes / 128 MB, then select the 1.1–12 s window around the edit.</p></div>
+        <div class="upload-grid">
+          <label class="file-choice"><span class="file-icon">♫</span><strong id="audio-name">Choose audio</strong><small>or drop a file here</small><input id="audio-file" type="file" accept=".wav,.flac,.mp3,.aif,.aiff,audio/wav,audio/flac,audio/mpeg,audio/aiff,audio/x-aiff"></label>
+          <div class="score-choice">
+            <label for="transcription-provider">Automatic transcription</label>
+            <select id="transcription-provider"><option value="muscriptor_public" selected>MuScriptor · public</option><option value="yourmt3">YourMT3+ · public</option></select>
+            <small>Choose a first-pass draft. You can correct every note before separation.</small>
+            <label id="instrument-hint-choice" for="instrument-hint" hidden>Focus on one instrument (optional)<select id="instrument-hint"><option value="">Automatic · all parts</option><option value="acoustic_piano">Piano</option><option value="electric_piano">Electric piano</option><option value="acoustic_guitar">Acoustic guitar</option><option value="clean_electric_guitar">Electric guitar</option><option value="acoustic_bass">Acoustic bass</option><option value="electric_bass">Electric bass</option><option value="violin">Violin</option><option value="viola">Viola</option><option value="cello">Cello</option><option value="contrabass">Double bass</option><option value="flutes">Flute</option><option value="clarinet">Clarinet</option><option value="oboe">Oboe</option><option value="bassoon">Bassoon</option><option value="soprano_and_alto_sax">Soprano / alto sax</option><option value="tenor_sax">Tenor sax</option><option value="baritone_sax">Baritone sax</option><option value="trumpet">Trumpet</option><option value="trombone">Trombone</option><option value="french_horn">French horn</option><option value="tuba">Tuba</option><option value="orchestral_harp">Harp</option><option value="organ">Organ</option><option value="voice">Voice</option><option value="drums">Drums</option></select><small>MuScriptor only. Restrict the draft to one part when helpful.</small></label>
+            <label for="midi-file">Already have aligned MIDI?</label><input id="midi-file" type="file" accept=".mid,.midi,audio/midi"><small>Optional. Otherwise, use the selected automatic draft or add notes manually.</small>
+          </div>
+          <button id="load" class="primary" type="button" disabled><span class="load-label">Load &amp; draft score</span><span>→</span></button>
+        </div>
+        <div class="example-actions"><button id="try-example" type="button">Try a 3-second example</button><button id="try-example-score" type="button">Try example with aligned score</button><small>Use an automatic draft, or the supplied score when transcription is unavailable.</small></div>
+        <div id="source-preview-row" class="source-preview" hidden>
+          <div class="source-preview-player"><label for="source-preview">Listen to the source and find the edit</label><audio id="source-preview" controls preload="metadata"></audio></div>
+          <div class="source-window-controls"><label for="window-start">Window starts at (s)<input id="window-start" type="number" min="0" step="0.1" value="0"></label><button id="use-playback-position" type="button">Use playback position</button><label for="window-seconds">Window length (s)<input id="window-seconds" type="number" min="1.1" max="12" step="0.1" value="12"></label></div>
+          <p>Choose a rough region in the recording. Only this 1.1–12 s window is sent for transcription and separation; you can refine note timing in the score below.</p>
+        </div>
+        <p id="load-status" class="upload-status" role="status" aria-live="polite">Choose a WAV, FLAC, MP3 or AIFF file to begin.</p>
+        <div id="recording-row" class="recording-row" hidden><span id="recording-label">Selected edit window</span><audio id="original-audio" controls preload="metadata"></audio></div>
+      </section>
+      <section class="card score-card" aria-labelledby="score-title" hidden>
+        <div class="card-heading"><div><p class="eyebrow">02 / ALIGNED SCORE</p><h2 id="score-title">Check the transcription</h2></div><p id="score-subtitle">Inspect notes over the original spectrogram; correct pitch and timing before separation.</p></div>
+        <div class="score-actions"><label id="part-choice" class="part-choice" hidden>Instrument part<select id="part-filter"></select></label><button id="transcribe" type="button" disabled hidden>✧ Try a new draft</button><button id="alternate-transcriber" type="button" disabled hidden></button><button id="cross-check" type="button" disabled hidden>↔ Cross-check with other model</button><button id="add-note" type="button" disabled aria-pressed="false">✎ Draw notes</button><button id="delete-note" type="button" disabled>− Remove selected note</button><button id="edit-score" type="button" hidden>✎ Edit score again</button><button id="separate" class="primary" type="button" disabled><span class="separate-label">Run NoteSep</span> <span aria-hidden="true">↗</span></button></div>
+        <div id="cross-check-result" class="cross-check-result" role="status" aria-live="polite" hidden><strong id="cross-check-summary"></strong><p id="cross-check-caveat">This compares note pitch and onset only. Agreement can still miss notes both models overlook.</p><ul id="cross-check-candidates"></ul></div>
+        <div id="score-review-gate" class="score-review-gate" hidden>
+          <div><strong>Check score coverage</strong><p>Audio checks assess listed notes; they cannot prove the draft is complete. Compare the full score with the spectrogram, and use the other-model cross-check when available. Model agreement can still miss notes.</p></div>
+          <label><input id="score-reviewed" type="checkbox"><span>I reviewed the note coverage, pitches, and timing against the recording.</span></label>
+        </div>
+        <div class="result-card score-status" hidden><span id="note-count">No notes yet</span><span id="separation-hint">Correct the score, then run NoteSep.</span><span id="status" role="status" aria-live="polite">Choose a short recording to begin.</span></div>
+        <div class="editor-frame-wrap"><iframe id="editor-frame" title="Editable NoteSep piano roll" src="/static/note-editor.html?v=20261007-project-reopen" loading="eager"></iframe></div>
+        <div class="score-actions export-actions">
+          <button id="download-score" type="button" disabled>Download score JSON</button>
+          <button id="download-edit" type="button" disabled>Download edited WAV</button>
+          <button id="download-edit-settings" type="button" disabled>Download edit settings</button>
+          <a id="download-stems" hidden download="notesep-notes.zip">Download note stems &amp; project</a>
+        </div>
+        <div id="output-review-gate" class="score-review-gate output-review-gate" hidden>
+          <div><strong>Audition the separated audio</strong><p>Play the complete NoteSep sum, compare it with the source, and audition any outlined notes. If a note is missing or sounds wrong, edit the score and rerun separation. Automated checks cannot judge musical quality.</p><p id="output-review-status" role="status" aria-live="polite">Move the playhead to 0 s, then play the full separated sum through to the end.</p></div>
+          <label><input id="output-reviewed" type="checkbox" disabled><span>I listened to the full separated sum and reviewed the flagged notes.</span></label>
+        </div>
+        <p class="tip">Returning to score correction restores the source score and resets audio edits; save the edited WAV or settings first. The spectrogram is the original audio; colored bands mark each score note’s fundamental and timing. Cross-check with another transcription model to surface disagreements and possible omissions; gold outlines mark notes worth reviewing, not proven errors. Click a band to preview it in context. Drag notes left/right for timing, up/down for pitch, or pull the right edge for duration. After separation, compare the direct sum with the mixture and audition individual notes; gold outlines then mark quiet, pitch-inconsistent, or competing-pitch outputs. Neither a clean note check nor a low sum residual proves that no notes are missing or assigned incorrectly.</p>
+      </section>
+    </main>
+    <footer><p>NoteSep estimates are edited and <strong>summed directly</strong>. There is no mixture subtraction. <span id="transcription-privacy">Only the selected edit window is sent for automatic transcription; inspect its draft against the spectrogram.</span> This is a private preview with temporary uploads. <a href="/notesep-source.zip" download>Download source (AGPL-3.0)</a>.</p></footer>
+  </div>
+  <div id="task-progress" class="task-progress" hidden>
+    <div class="task-progress-heading"><strong id="task-progress-label" role="status" aria-live="polite">Working…</strong><span id="task-progress-elapsed" aria-hidden="true"></span></div>
+    <div id="task-progress-bar" class="task-progress-track" role="progressbar" aria-label="Task progress" aria-valuetext="Working in progress"><span></span></div>
+  </div>
+  <script type="module" src="/static/space.js?v=20261007-project-reopen"></script>
+</body>
+</html>

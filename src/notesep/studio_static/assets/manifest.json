@@ -1,0 +1,11 @@
+{
+  "examples": [
+    {
+      "id": "workspace",
+      "title": "Upload a recording",
+      "duration": 6,
+      "scoreOnly": true,
+      "notes": []
+    }
+  ]
+}

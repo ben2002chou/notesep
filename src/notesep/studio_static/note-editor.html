@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0e1820">
+  <link rel="icon" href="data:,">
+  <title>NoteSep · note editor</title>
+  <link rel="stylesheet" href="note-editor.css?v=20260926-quality2">
+  <link rel="stylesheet" href="note-editor-layout.css?v=20260925-spec3">
+  <link rel="stylesheet" href="space-editor.css?v=20261007-project-reopen">
+  <link rel="stylesheet" href="draw-mode.css?v=20260926-draw1">
+</head>
+<body>
+  <main class="editor" id="editor">
+    <div class="editor-topline">
+      <div><p class="eyebrow">NOTES, NOT STEMS</p><h1>Shape the performance</h1></div>
+      <p class="editor-intro">Drag a note in time or pitch. Pull its right edge to stretch it. Hear the edited notes together, or isolate one.</p>
+    </div>
+    <div class="toolbar">
+      <label class="piece-picker">Recording <select id="piece" aria-label="Recording"></select></label>
+      <div class="toolbar-actions">
+        <button id="play" class="primary" type="button">▶ <span>Play edit</span></button>
+        <button id="solo" type="button" disabled>◎ <span>Hear note</span></button>
+        <button id="compare" type="button">↔ <span>Unedited sum</span></button>
+        <button id="reset" type="button" disabled>↶ <span>Reset</span></button>
+      </div>
+    </div>
+    <div class="timeline-top"><span id="playback-label">NoteSep · edited sum</span><span id="clock">0.00 / 0.00 s</span></div>
+    <div class="spectrogram-heading"><strong>Original audio · log-frequency, 27.5 Hz–8 kHz</strong><span id="spectrogram-status">Click a colored note band to inspect or audition it.</span></div>
+    <div class="spectrogram-shell" id="spectrogram-shell">
+      <div class="spectrogram-frequency-labels" id="spectrogram-frequency-labels" aria-hidden="true"></div>
+      <div class="spectrogram-viewport" id="spectrogram-viewport" role="group" aria-label="Original audio spectrogram with score-note overlays">
+        <div class="spectrogram-content" id="spectrogram-content">
+          <canvas class="score-spectrogram" id="spectrogram" aria-label="Log-frequency magnitude spectrogram of the original recording"></canvas>
+          <div class="spectrogram-notes" id="spectrogram-notes"></div>
+          <div class="spectrogram-playhead" id="spectrogram-playhead" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+    <div class="score-tool-row" id="score-tool-row" hidden><button id="draw-mode" type="button" aria-pressed="false">✎ Draw notes</button><span id="draw-hint">Turn on Draw, then click or drag in the piano roll to add notes. Click an existing note to erase it; turn Draw off to move notes.</span></div>
+    <div class="roll-shell" id="roll-shell">
+      <div class="piano-key-labels" id="pitch-labels" aria-hidden="true"></div>
+      <div class="roll-viewport" id="roll-viewport">
+        <div class="roll-grid" id="roll-grid" role="group" aria-label="Editable piano roll"></div>
+        <div class="roll-playhead" id="roll-playhead" aria-hidden="true"></div>
+      </div>
+    </div>
+    <div class="ruler-viewport" id="ruler-viewport"><div class="ruler" id="ruler" aria-label="Click to seek"></div></div>
+    <div class="editor-bottom">
+      <div class="selection-summary"><span class="eyebrow">SELECTED NOTE</span><strong id="selected-title">Choose a note above</strong><small id="selected-detail">The audio comes from a separated NoteSep estimate.</small></div>
+      <div class="controls">
+        <label>Pitch <output id="pitch-value">0 st</output><input id="pitch" type="range" min="-12" max="12" step="1" value="0" disabled></label>
+        <label>Timing <output id="timing-value">0 ms</output><input id="timing" type="range" min="-1000" max="1000" step="10" value="0" disabled></label>
+        <label>Length <output id="length-value">1.00×</output><input id="length" type="range" min="0.5" max="2" step="0.02" value="1" disabled></label>
+        <label>Volume <output id="volume-value">0 dB</output><input id="volume" type="range" min="-24" max="12" step="1" value="0" disabled></label>
+      </div>
+    </div>
+    <div id="score-note-fields" class="score-note-fields" hidden>
+      <label>MIDI pitch<input id="score-midi-pitch" type="text" inputmode="numeric" value="60"></label>
+      <label>Start (s)<input id="score-start" type="text" inputmode="decimal" value="0"></label>
+      <label>End (s)<input id="score-end" type="text" inputmode="decimal" value="0.25"></label>
+      <button id="apply-score-note" type="button" disabled>Apply to selected note</button>
+      <button id="add-score-note" type="button">Add note with these values</button>
+    </div>
+    <div id="audio-note-fields" class="score-note-fields" hidden>
+      <label><input id="audio-mute" type="checkbox" disabled>Mute in the edited sum</label>
+      <label>Pitch shift (st)<input id="audio-pitch-shift" type="text" inputmode="numeric" value="0" disabled></label>
+      <label>Timing shift (ms)<input id="audio-timing-shift" type="text" inputmode="decimal" value="0" disabled></label>
+      <label>Length factor<input id="audio-length-factor" type="text" inputmode="decimal" value="1" disabled></label>
+      <label>Volume change (dB)<input id="audio-gain-db" type="text" inputmode="decimal" value="0" disabled></label>
+      <button id="apply-audio-edit" type="button" disabled>Apply audio edit</button>
+    </div>
+    <div class="editor-foot"><p id="status" role="status">Loading note estimates…</p><p>Solo notes get a listening boost; the edit mix keeps its original levels. Edits do not re-run separation.</p></div>
+  </main>
+  <script type="module" src="note-editor.js?v=20261007-project-reopen"></script>
+</body>
+</html>

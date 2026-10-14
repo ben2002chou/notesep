@@ -1,0 +1,8 @@
+{
+  "source_url": "https://raw.githubusercontent.com/kuielab/sdx23/2f217926797bfc25edc4420200670ca288efe8a8/LICENSE",
+  "commit": "2f217926797bfc25edc4420200670ca288efe8a8",
+  "license": "MIT",
+  "license_sha256": "e367da8e88a9791487026058c4832ab9abea1937b139f3003b9ac74aa6af3ef1",
+  "applies_to": "KUIELab donor portions in dna_residual_tfc_tdf_unet.py and its preserved research copies",
+  "adaptations": "DNA signed-complex residual correction, conditioning, task-specific model configuration; existing scientific files unchanged"
+}
