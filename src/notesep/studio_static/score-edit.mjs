@@ -1,3 +1,9 @@
+export function scoreTimeValue(seconds){
+  // Keep the original numeric timestamp when an unrelated field is edited.
+  // Four decimal places can collapse a valid one-sample note at 16 kHz.
+  return String(seconds);
+}
+
 export function scoreValues(pitch,start,end,duration){
   if(!Number.isInteger(pitch)||pitch<21||pitch>108)throw new Error('Use a MIDI pitch from 21 to 108.');
   if(![start,end,duration].every(Number.isFinite)||start<0||end>duration||

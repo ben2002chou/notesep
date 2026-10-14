@@ -1,7 +1,7 @@
 import {transformNote} from './vendor/note-audio-transform.mjs';
 import {floatWav, saveBlob} from './audio-export.mjs';
 import {wavBuffer} from './wav-decode.mjs';
-import {scoreValues,correctNote} from './score-edit.mjs';
+import {scoreValues,correctNote,scoreTimeValue} from './score-edit.mjs';
 import {audioEditValues} from './audio-edit-values.mjs';
 
 const $=selector=>document.querySelector(selector);
@@ -232,8 +232,8 @@ function updateControls(){
   scoreFields.apply.disabled=!n;
   scoreFields.add.disabled=!model.example?.scoreOnly;
   scoreFields.pitch.value=n?n.pitch+n.pitchShift:60;
-  scoreFields.start.value=n?visualStart(n).toFixed(4):0;
-  scoreFields.end.value=n?visualEnd(n).toFixed(4):Math.min(.25,model.example?.duration||.25);
+  scoreFields.start.value=n?scoreTimeValue(visualStart(n)):0;
+  scoreFields.end.value=n?scoreTimeValue(visualEnd(n)):Math.min(.25,model.example?.duration||.25);
   if(model.example?.scoreOnly){els.play.disabled=!n;els.play.querySelector('span').textContent=model.playing?'Pause':'Preview note';els.solo.disabled=true;}
   els.title.textContent=n?`${pitchName(n.pitch+n.pitchShift)} · ${formatTime(visualStart(n))} s`:'Choose a note above';
   els.detail.textContent=model.example?.scoreOnly?(n?`Score query ${pitchName(n.pitch)}, ${formatTime(n.start)}–${formatTime(n.end)} s${n.qualityFlags?.length?` · review: ${qualityText(n.qualityFlags)}`:''}`:'Add or transcribe notes to make an aligned score.'):(n?`Original ${pitchName(n.pitch)}, ${formatTime(n.start)}–${formatTime(n.end)} s · ${methodName()} estimate${n.qualityFlags?.length?` · review: ${qualityText(n.qualityFlags)}`:''}`:`The audio comes from a ${methodName()} estimate.`);
