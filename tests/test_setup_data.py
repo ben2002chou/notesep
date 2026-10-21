@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from setup_data import dataset_files, verify, write_path_map
+from notesep.training_data import dataset_files, verify, write_path_map
 from notesep.cli import main as notesep_main
 
 

@@ -31,9 +31,6 @@ from model_exp.occurrence_dual_hpss_separator import (  # noqa: E402
 from model_exp.occurrence_dual_hpss_symmetric_alignment import (  # noqa: E402
     OccurrenceDualHPSSSymmetricAlignment,
 )
-from model_exp.occurrence_dual_hpss_band_split_roformer import (  # noqa: E402
-    OccurrenceDualHPSSBandSplitRoFormer,
-)
 from model_exp.occurrence_audio_augmentation import (  # noqa: E402
     OccurrenceAugmentationConfig,
     apply_occurrence_augmentation,
@@ -102,10 +99,8 @@ DUAL_COMMUNICATION = os.environ.get("OCCURRENCE_DUAL_COMMUNICATION", "none")
 if DUAL_COMMUNICATION not in {"none", "symmetric_lowres"}:
     raise ValueError(f"Unknown OCCURRENCE_DUAL_COMMUNICATION: {DUAL_COMMUNICATION}")
 DUAL_BACKBONE = os.environ.get("OCCURRENCE_DUAL_BACKBONE", "tfc_tdf")
-if DUAL_BACKBONE not in {"tfc_tdf", "band_split_roformer"}:
-    raise ValueError(f"Unknown OCCURRENCE_DUAL_BACKBONE: {DUAL_BACKBONE}")
-if DUAL_BACKBONE != "tfc_tdf" and DUAL_COMMUNICATION != "none":
-    raise ValueError("RoFormer and TFC-TDF communication ablations cannot be combined")
+if DUAL_BACKBONE != "tfc_tdf":
+    raise ValueError("The paper recipe uses the TFC-TDF backbone")
 COMMUNICATION_INITIALIZATION = os.environ.get(
     "OCCURRENCE_COMMUNICATION_INITIALIZATION_CHECKPOINT", ""
 )
@@ -609,20 +604,6 @@ def initialize_head_ablation_shared_state(
 
 def make_model() -> torch.nn.Module:
     if DECOMPOSITION == "hpss":
-        if DUAL_BACKBONE == "band_split_roformer":
-            if (
-                HPSS_HARMONIC_PARAMETERIZATION != "ownership"
-                or HPSS_PERCUSSIVE_PARAMETERIZATION != "ownership"
-            ):
-                raise ValueError("The RoFormer canary requires ownership parameterization")
-            if CONDITIONING_MODE != "rt2_target_roll":
-                raise ValueError("The RoFormer canary requires RT2 target-roll conditioning")
-            if COMMUNICATION_INITIALIZATION:
-                raise ValueError("RoFormer cannot use a TFC-TDF communication checkpoint")
-            return OccurrenceDualHPSSBandSplitRoFormer(
-                os.environ.get("OCCURRENCE_ROFORMER_PRESET", "30m"),
-                HPSS_HARMONIC_GATE,
-            )
         model_type = (
             OccurrenceDualHPSSSymmetricAlignment
             if DUAL_COMMUNICATION == "symmetric_lowres"

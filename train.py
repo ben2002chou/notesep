@@ -41,7 +41,7 @@ def main(cfg: DictConfig) -> None:
         ]
         if cfg.training.canary_steps is not None:
             command += ["--canary-steps", str(cfg.training.canary_steps)]
-    elif cfg.stage in ("aso", "aso_canary"):
+    elif cfg.stage == "aso":
         settings = {
             "schema": "notesep_aso_training_config_v1",
             "arm": "acoustic_multiplicative",
@@ -58,10 +58,6 @@ def main(cfg: DictConfig) -> None:
             "preregistration": ASO_PREREG,
             "preregistration_sha256": ASO_PREREG_SHA,
         }
-        if cfg.stage == "aso_canary":
-            settings["release_successor"] = {
-                "admission": "canary only, no benchmark test data"
-            }
         config_path = Path(HydraConfig.get().runtime.output_dir) / "aso-config.json"
         config_path.write_text(json.dumps(settings, indent=2) + "\n")
         command = [
