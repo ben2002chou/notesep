@@ -1,0 +1,24 @@
+{
+  "files": {
+    "scripts/train_occurrence_selective_cross_instrument_v1.py": "cd6f4971a61528ac68bcb5b308afbed5197d27a9a0d0734fd4d4490e7d23d05b",
+    "scripts/train_scns_eventcluster_interleaved_v1.py": "3d91b3db8cc71c02d58a00ca799e9414b4fd3e797bbbf99b9ca90e62e221e504",
+    "scripts/train_scns_trackbound_interleaved_v3.py": "a0a8e1eb5f78a467fd3e55aee0a9cb3498dbdd528524b601f28b14a356a3422a",
+    "scripts/train_scns_v3_library_balanced_interleaved_v2.py": "f116abe14116193648be2889bb9a330791ac78dcdf5e11063e0369901b5a98d3",
+    "scripts/train_scns_v3_parent_balanced_target_cropped_v1.py": "1da1b876eed23ed1d28ad1ccab99bcc4336a7dd45ada85b711687c2581c673a5",
+    "scripts/train_scns_v3_target_cropped_interleaved_v1.py": "2343392cd4d12bdc1f956c883ab1e6d0e051a18b9493e3f5fdfa6761ab8c6a7f",
+    "src/model_exp/__init__.py": "a41778592977060ba668984c8b8a1d085e3f754bb2c10a9dce972142ae86bce8",
+    "src/model_exp/cross_instrument_exact_note_scene_data.py": "ff2c716ad1bba3d669911ab3d71a42b64e7342c531a4bdac1ff1d704e7fc7206",
+    "src/model_exp/dna_residual_v13_streaming.py": "4c13e9e9f691fa7da4a243c7e96d53b2590a894a092dfb78c3798cdb276d7755",
+    "src/model_exp/occurrence_audio_augmentation.py": "f0505040b2fcf39d6cb601afa540c45bc3acd3d16a4b0aa66914a7d55cd5af6d",
+    "src/model_exp/occurrence_full_score_data.py": "a8c0020b2231d673a71c8c3b2b565b3a4f189cb99b5ef51fe68d2372743649bd",
+    "src/model_exp/packed_blob_shards.py": "24a9de42c7e853bda9a70eeea6ab5e2ef6a5b2dbb2be0434123c8ed82fc6eb44",
+    "src/model_exp/recorded_exposure_schedule.py": "8bad64a7222e89e92ac74a06f6820eea06e5dae5349376fdd1c43c34e7090229",
+    "src/model_exp/recorded_natural_score_scene_data.py": "66cc99e34f45a98f539121a164f67b5b7f25f2e2409c6c1e473eafb0f22cbdbe",
+    "src/model_exp/recorded_note_crop.py": "61a5e7508d28bd13832a5cc0d2f00d4335d38a5395af0fe0e7583ff41d610646"
+  },
+  "path_transport_original_sha256": {
+    "src/model_exp/cross_instrument_exact_note_scene_data.py": "af211d051a93166d96ee6ab36630a6e55eae711a94b5dbe12d524e78cd7451f0",
+    "src/model_exp/recorded_natural_score_scene_data.py": "f651d09110f1f97f21288fa8174f37e653b4219812ef7cfe906d877c6b6d3cd7"
+  },
+  "schema": "notesep_source_hashes_v1"
+}

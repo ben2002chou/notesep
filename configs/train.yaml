@@ -1,0 +1,13 @@
+defaults:
+  - stage: notegrab
+  - _self_
+
+run:
+  dir: ???
+  dry_run: false
+
+hydra:
+  job:
+    chdir: false
+  run:
+    dir: ${run.dir}.hydra

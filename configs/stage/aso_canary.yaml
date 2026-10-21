@@ -1,0 +1,12 @@
+# @package _global_
+stage: aso_canary
+data:
+  path_map: null
+  fresh_index: ???
+  recorded_root: ???
+  proposal_root: ???
+training:
+  mode: canary
+  deterministic: true
+  seed: 20260909
+  proposal_validation_sha256: 2d516ae3d9421bfc80c3bffd48921973a295152fceb91e1d0c584984c0c4f7fa

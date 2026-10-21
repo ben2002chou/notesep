@@ -13,6 +13,11 @@ def main(argv=None):
                                ('verify', 'Verify checkpoint SHA-256 values')]:
         item = sub.add_parser(command, help=help_text)
         item.add_argument('--profile', choices=list(PROFILES))
+    training_data = sub.add_parser('download-data', help='Download and verify training data')
+    training_data.add_argument('--output', type=Path, required=True)
+    training_data.add_argument('--repo-id', help='Hugging Face dataset repository')
+    training_data.add_argument('--revision', help='Immutable dataset commit')
+    training_data.add_argument('--manifest', type=Path, help='Verify a local dataset')
     transcribe = sub.add_parser('transcribe', help='Draft an editable selected-window score')
     transcribe.add_argument('audio', type=Path)
     transcribe.add_argument('--output', type=Path, required=True)
@@ -59,6 +64,13 @@ def main(argv=None):
             return
         if args.command in ('download', 'verify'):
             print(json.dumps((download if args.command == 'download' else verify)(profile=args.profile), indent=2))
+        elif args.command == 'download-data':
+            from .training_data import prepare
+            count, path_map = prepare(args.output, repo_id=args.repo_id,
+                                      revision=args.revision, manifest_path=args.manifest)
+            print(f'Verified {count} dataset files in {args.output.expanduser().resolve()}')
+            if path_map is not None:
+                print(f'Training path map: {path_map}')
         elif args.command == 'separate':
             bank = NoteSep(args.device, profile=args.profile).separate(args.audio, args.score,
                 apply_aso=not args.notegrab_only, window_start=args.window_start,
