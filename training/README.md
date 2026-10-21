@@ -13,7 +13,7 @@ are supplied separately.
 | `download_initial_checkpoint.py` | Downloads and verifies the NoteGrab starting checkpoint. |
 | `train_aso.py` | Validates ASO inputs and launches its training recipe. |
 | `run_aso_deterministic.py` | Applies and records deterministic runtime settings for ASO. |
-| `scan_aso_sampler.py` | Defines the fixed-order sampler operation used by deterministic ASO runs. |
+| `fixed_order_scan.py` | Overrides the note-axis cumulative sum used by ASO during deterministic runs. |
 | `aso/` | ASO model, data, and training implementation. |
 | `notegrab/` | NoteGrab recipe, models, data, and saved training settings. |
 

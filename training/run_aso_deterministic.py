@@ -116,9 +116,9 @@ def main():
     torch.backends.cudnn.benchmark = False
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
-    from scan_aso_sampler import note_axis_scan_policy
+    from fixed_order_scan import note_axis_scan_policy
 
-    scan_source = Path(__file__).with_name("scan_aso_sampler.py")
+    scan_source = Path(__file__).with_name("fixed_order_scan.py")
     drivers = (
         subprocess.check_output(
             [
