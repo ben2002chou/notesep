@@ -13,7 +13,7 @@ from typing import Any, Callable
 import numpy as np
 import torch
 
-from .dna_residual_v13_streaming import V13StreamingResidualDataset
+from .streaming_dataset import V13StreamingResidualDataset
 
 
 class FullScoreLookup:
@@ -34,7 +34,9 @@ class FullScoreLookup:
                 f"file:{self.path}?mode=ro&immutable=1", uri=True
             )
             self._pid = os.getpid()
-            metadata = dict(self._connection.execute("SELECT key, value FROM metadata"))
+            metadata = dict(
+                self._connection.execute("SELECT key, value FROM metadata")
+            )
             if metadata.get("schema") != "tfc_score_condition_index_v1":
                 raise ValueError("Full-score index has the wrong schema")
         assert self._connection is not None
@@ -45,11 +47,18 @@ class FullScoreLookup:
         if cached is not None:
             self._cache.move_to_end(excerpt_id)
             return cached
-        row = self._db().execute(
-            "SELECT row_json FROM excerpts WHERE excerpt_id = ?", (excerpt_id,)
-        ).fetchone()
+        row = (
+            self._db()
+            .execute(
+                "SELECT row_json FROM excerpts WHERE excerpt_id = ?",
+                (excerpt_id,),
+            )
+            .fetchone()
+        )
         if row is None:
-            raise KeyError(f"Score excerpt is absent from full-score index: {excerpt_id}")
+            raise KeyError(
+                f"Score excerpt is absent from full-score index: {excerpt_id}"
+            )
         value = json.loads(str(row[0]))
         self._cache[excerpt_id] = value
         while len(self._cache) > 128:
@@ -70,7 +79,10 @@ class AcousticExtensionLookup:
     def __init__(self, path: Path) -> None:
         self.path = path.expanduser().resolve()
         with np.load(self.path, allow_pickle=False) as payload:
-            if str(np.asarray(payload["schema"]).item()) != "acoustic_extension_lookup_v1":
+            if (
+                str(np.asarray(payload["schema"]).item())
+                != "acoustic_extension_lookup_v1"
+            ):
                 raise ValueError("Unexpected acoustic extension lookup schema")
             self.sound_ids = [value.decode() for value in payload["sound_ids"]]
             self.sound_offsets = payload["sound_offsets"].astype(np.int64)
@@ -78,12 +90,16 @@ class AcousticExtensionLookup:
             self.velocity = payload["velocity"].astype(np.float32)
             self.duration = payload["duration_samples"].astype(np.float32)
             self.release = payload["release_samples"].astype(np.float32)
-            self.scale = payload["sound_robust_scale_samples"].astype(np.float32)
+            self.scale = payload["sound_robust_scale_samples"].astype(
+                np.float32
+            )
             family_names = [str(value) for value in payload["family_names"]]
             family_stats = payload[
                 "family_stats_mean_std_p01_median_p99"
             ].astype(np.float32)
-        self.sound_index = {value: index for index, value in enumerate(self.sound_ids)}
+        self.sound_index = {
+            value: index for index, value in enumerate(self.sound_ids)
+        }
         self.family_stats = dict(zip(family_names, family_stats, strict=True))
 
     def estimate(
@@ -158,18 +174,27 @@ class FullScoreSyntheticDataset(V13StreamingResidualDataset):
     def __getitem__(self, ordinal: int | tuple[int, int]) -> dict[str, Any]:
         output = super().__getitem__(ordinal)
         raw_ordinal = int(ordinal[0] if isinstance(ordinal, tuple) else ordinal)
-        row = self._db().execute(
-            "SELECT pair_id, packed_root FROM pairs WHERE ordinal = ?", (raw_ordinal,)
-        ).fetchone()
+        row = (
+            self._db()
+            .execute(
+                "SELECT pair_id, packed_root FROM pairs WHERE ordinal = ?",
+                (raw_ordinal,),
+            )
+            .fetchone()
+        )
         if row is None:
             raise IndexError(raw_ordinal)
         pair_id, packed_root = str(row[0]), Path(str(row[1])).resolve()
-        metadata = self._reader(packed_root).record(pair_id, "target_f32").metadata
+        metadata = (
+            self._reader(packed_root).record(pair_id, "target_f32").metadata
+        )
         score = self._full_score_lookup.get(str(metadata["excerpt_id"]))
         notes = list(score["absolute_notes"])
         target_index = int(metadata["target_event_index"])
         if not 0 <= target_index < len(notes):
-            raise ValueError("Target event is outside the frozen complete score")
+            raise ValueError(
+                "Target event is outside the frozen complete score"
+            )
         target_note = notes[target_index]
         transposition = int(output["pitch"]) - int(target_note["pitch"])
         events = []
@@ -197,7 +222,8 @@ class FullScoreSyntheticDataset(V13StreamingResidualDataset):
                     ),
                     target_onset
                     + round(
-                        (float(note["offset_sec"]) - target_score_onset) * 16_000
+                        (float(note["offset_sec"]) - target_score_onset)
+                        * 16_000
                     ),
                     int(output["valid_samples"]),
                 )
@@ -213,7 +239,9 @@ class FullScoreSyntheticDataset(V13StreamingResidualDataset):
                 )
                 events.append(event)
         if not events:
-            raise ValueError("Full score has no event overlapping the sampled window")
+            raise ValueError(
+                "Full score has no event overlapping the sampled window"
+            )
         output["full_score_events"] = events
         output["sound_id"] = str(metadata["sound_id"])
         return output
@@ -267,7 +295,9 @@ def collate_full_score(
             if extension_lookup is not None:
                 if use_family_fallback:
                     mean, scale, minimum, maximum = (
-                        extension_lookup.estimate_family(str(row["sound_family"]))
+                        extension_lookup.estimate_family(
+                            str(row["sound_family"])
+                        )
                     )
                 else:
                     mean, scale, minimum, maximum = extension_lookup.estimate(

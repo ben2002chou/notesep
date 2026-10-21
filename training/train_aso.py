@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import json
 import os
-import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -41,12 +40,14 @@ def main():
             "The regenerated release cache is admitted for the 320-step "
             "canary only; full training admission remains separate"
         )
-    provenance = json.loads((ROOT / "training/aso_provenance.json").read_text())
-    source = ROOT / provenance["root"]
-    for name, checksum in provenance["files_sha256"].items():
+    source_manifest = json.loads(
+        (ROOT / "training/aso/source_manifest.json").read_text()
+    )
+    source = ROOT / source_manifest["source_root"]
+    for name, checksum in source_manifest["source_files_sha256"].items():
         if hashlib.sha256((source / name).read_bytes()).hexdigest() != checksum:
             raise ValueError("Training source identity mismatch: " + name)
-    for name, checksum in provenance["transport_helpers_sha256"].items():
+    for name, checksum in source_manifest["helper_sha256"].items():
         if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != checksum:
             raise ValueError(
                 "Training transport helper identity mismatch: " + name
@@ -64,7 +65,7 @@ def main():
     }
     command = [
         sys.executable,
-        str(source / "scripts/train_temporal_aso_exact_score_v1.py"),
+        str(source / "scripts/train_acoustic_ownership.py"),
         "--arm",
         settings["arm"],
         "--mode",
@@ -94,7 +95,7 @@ def main():
             "flag on resume"
         )
     if args.deterministic:
-        runtime = ROOT / "training/train_aso_deterministic_entry.py"
+        runtime = ROOT / "training/run_aso_deterministic.py"
         entry = Path(command[1])
         command = [
             sys.executable,
@@ -136,13 +137,6 @@ def main():
         )
     if args.dry_run:
         return
-    host = socket.gethostname().lower()
-    if "gilbreth" in host and (
-        not os.environ.get("SLURM_JOB_ID") or "-fe" in host
-    ):
-        raise RuntimeError(
-            "Run training in Slurm compute, never on a login node"
-        )
     env = os.environ.copy()
     env["PREREG_SHA256"] = settings["preregistration_sha256"]
     env["PYTHONPATH"] = (

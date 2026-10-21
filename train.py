@@ -15,10 +15,7 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
 ROOT = Path(__file__).resolve().parent
-ASO_PREREG = (
-    "training/aso/docs/"
-    "preregister_acoustic_multiplicative_temporal_aso_full_v1_20260910.md"
-)
+ASO_PREREG = "training/aso/docs/training_protocol.md"
 ASO_PREREG_SHA = (
     "c689418c734a94ec34d973135154402d376401fb78a720742b65eb53602e6b70"
 )

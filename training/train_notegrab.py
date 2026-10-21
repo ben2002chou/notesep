@@ -1,9 +1,4 @@
-"""Run recovered NoteGrab continuation components as a reconstruction.
-
-This entry point does not claim recovery of the missing historical executed
-closure. It binds all available source components and the original continuation
-contract, verifies model/loss/sampler contracts, and calls the real trainer.
-"""
+"""Run the NoteGrab training recipe with explicit data and checkpoint paths."""
 
 import argparse
 import json
@@ -12,7 +7,7 @@ import socket
 import sys
 from pathlib import Path
 
-import verify_notegrab_components as components
+import validate_notegrab as components
 
 
 def apply_data_root(options):
@@ -77,10 +72,6 @@ def main():
     )
     options = parser.parse_args()
     apply_data_root(options)
-    if "gilbreth" in socket.gethostname().lower() and (
-        not os.environ.get("SLURM_JOB_ID") or "-fe" in socket.gethostname()
-    ):
-        raise RuntimeError("Use a Slurm compute allocation on Gilbreth")
     if options.output.exists() or (
         options.canary_steps is not None
         and not 1 <= options.canary_steps <= 5000
@@ -104,9 +95,9 @@ def main():
     from notesep.training_paths import configure, relocated
 
     configure(options.path_map)
-    contract_path = components.ROOT / "training/notegrab/contract.json"
-    if components.sha(contract_path) != components.CONTRACT_SHA:
-        raise ValueError("Original continuation contract changed")
+    contract_path = components.ROOT / "training/notegrab/training_contract.json"
+    if components.sha(contract_path) != components.TRAINING_CONTRACT_SHA:
+        raise ValueError("Training recipe changed")
     contract = json.loads(contract_path.read_text())
     if (
         components.sha(options.initialize_checkpoint)
@@ -129,7 +120,7 @@ def main():
     if options.path_map is not None:
         sys.argv += ["--path-map", str(options.path_map)]
     components.main()
-    import train_scns_v3_parent_balanced_target_cropped_v1 as entry
+    import parent_balanced_training as entry
 
     base = entry.cropped.v2.trackbound.v1.base
     os.environ["SCNS_V3_REQUIRED_SUPPLEMENTAL_FAMILIES"] = ",".join(
@@ -181,7 +172,7 @@ def main():
         "job_id": os.environ.get("SLURM_JOB_ID"),
         "host": socket.gethostname(),
         "launcher_sha256": components.sha(Path(__file__)),
-        "contract_sha256": components.sha(contract_path),
+        "training_contract_sha256": components.sha(contract_path),
         "component_validation_sha256": components.sha(
             options.output / "components.json"
         ),
@@ -193,7 +184,7 @@ def main():
         "dry_run": options.dry_run,
         "historical_executed_closure_recovered": False,
         "packed_metadata_transport_sha256": components.sha(
-            Path(__file__).with_name("packed_metadata_overlay.py")
+            Path(__file__).with_name("stage_metadata.py")
         ),
         "scope": (
             "Recovered scientific components and saved original recipe; exact "
@@ -216,8 +207,8 @@ def main():
         raise RuntimeError("Training requires CUDA")
     overlay = None
     if packed[0] is not None:
-        import model_exp.dna_residual_v13_streaming as streaming
-        from packed_metadata_overlay import PackedMetadataOverlay
+        import model_exp.streaming_dataset as streaming
+        from stage_metadata import PackedMetadataOverlay
 
         overlay = PackedMetadataOverlay(
             *packed, options.output / "packed-metadata-overlay"

@@ -1,0 +1,853 @@
+{
+  "arguments": {
+    "acoustic_offset_index": "/note-sep-data/synthetic/indexes/acoustic-offsets",
+    "audio_budget_samples": 3200000,
+    "batch_size": 8,
+    "device": "cuda",
+    "duration_index": "/note-sep-data/synthetic/indexes/duration-geometry",
+    "eval_every": 500,
+    "family_temperature_alpha": 1.0,
+    "fixed_samples": 0,
+    "frozen_manifest": "/note-sep-data/synthetic/corpus/FROZEN.json",
+    "grad_clip": 5.0,
+    "initialize_allow_loss_contract_change": false,
+    "initialize_allow_output_carrier_mode_change": false,
+    "lead_samples": 4000,
+    "learning_rate": 2e-06,
+    "log_every": 20,
+    "lr_decay_steps": 5000,
+    "max_steps": 5000,
+    "maximum_dynamic_batch_size": 192,
+    "minimum_window_samples": 16384,
+    "monitor_media_every": 0,
+    "monitor_media_on_resume": false,
+    "monitor_pairs": 128,
+    "num_workers": 16,
+    "output_dir": "/note-sep-output/notegrab",
+    "prefetch_factor": 3,
+    "priority_family_temperature_alpha": 1.0,
+    "priority_fraction": 0.0,
+    "priority_index": null,
+    "reader_cache_size": 16,
+    "real_example_fraction": 0.025542360512174084,
+    "recorded_frozen_root": [
+      "/note-sep-data/recorded/shards/shard-00",
+      "/note-sep-data/recorded/shards/shard-01",
+      "/note-sep-data/recorded/shards/shard-02",
+      "/note-sep-data/recorded/shards/shard-03",
+      "/note-sep-data/recorded/shards/shard-04",
+      "/note-sep-data/recorded/shards/shard-05",
+      "/note-sep-data/recorded/shards/shard-06",
+      "/note-sep-data/recorded/shards/shard-07"
+    ],
+    "release_samples": 2560,
+    "save_every": 250,
+    "seed": 20260910,
+    "synthetic_ordinal_view": "/note-sep-data/synthetic/views/training.json",
+    "wandb_mode": "online",
+    "wandb_name": "notegrab-paper-finetune",
+    "wandb_project": "dna_occurrence_dual_hpss_separator",
+    "wandb_run_id": null,
+    "warmup_steps": 200,
+    "weight_decay": 0.0,
+    "window_quantum": 4096
+  },
+  "compile_mode": "off",
+  "corpus_binding": {
+    "real_example_fraction": 0.025542360512174084,
+    "recorded": {
+      "cohort_sha256": "60ef63dcfc2b8810f5738be26e1d95d7b8254ce9572290afd5795d2e857e1b92",
+      "dna_conditioning": false,
+      "endpoint": "acoustic_offset_exact_native_recording",
+      "full_acoustic_target_retained": true,
+      "held_at_crop_entry": "negative_onset_not_fabricated_onset_zero",
+      "input_geometry": "historical_variable_window_midi_anchor_acoustic_release_4000_2560_min16384_q4096",
+      "model_rows": "score-addressed isolated-note targets within complete source mixtures",
+      "residual_conditioning": false,
+      "roots": [
+        {
+          "freeze_sha256": "0cb6ad77710555af87438f94a88bbc34e2f2ce1116aa3e762b842cbbc04eddec",
+          "path": "/note-sep-data/recorded/shards/shard-00"
+        },
+        {
+          "freeze_sha256": "0642d2964639e8689553b23ae8ca6dd47fa73f1749b06b6fcc68f00ed2e77552",
+          "path": "/note-sep-data/recorded/shards/shard-01"
+        },
+        {
+          "freeze_sha256": "6622097ff2569a9693326a803b37de4d020562ebec7683b2f76d64de3734ba96",
+          "path": "/note-sep-data/recorded/shards/shard-02"
+        },
+        {
+          "freeze_sha256": "395c1a56888d61ef874df7d59555d81f3b1b6cf5d3c6dd230ec1c0d148eb5301",
+          "path": "/note-sep-data/recorded/shards/shard-03"
+        },
+        {
+          "freeze_sha256": "fedc2e2f58422594a624197a63962476b4af33dfb42299c173003cdf97fe0bf3",
+          "path": "/note-sep-data/recorded/shards/shard-04"
+        },
+        {
+          "freeze_sha256": "715e0fa17d52ae27bf8fc0bcb5354ac3a33d8a66c6e9976375064fcb4344145f",
+          "path": "/note-sep-data/recorded/shards/shard-05"
+        },
+        {
+          "freeze_sha256": "e0b6e47823a7cf4340543e94f8b104c96fb097c7ed9c87732a36fd1c02e3f9e3",
+          "path": "/note-sep-data/recorded/shards/shard-06"
+        },
+        {
+          "freeze_sha256": "14002b11eb3c3bd894bc2ed3c3ea2b014bf7e487bbbe135b864a9718c634a82c",
+          "path": "/note-sep-data/recorded/shards/shard-07"
+        }
+      ],
+      "scene_k_counts": {
+        "K2": 0,
+        "K4": 0
+      },
+      "scene_sampling_unit": false,
+      "scenes": 268,
+      "schema": "scns_eventcluster_training_binding_v1",
+      "split": "train",
+      "target_conditioning_offset": "exact_measured_acoustic_endpoint",
+      "target_rows": 2858,
+      "timing_view": "real_score_event_cluster"
+    },
+    "schema": "dna_residual_v13_mixed_corpus_binding_v1",
+    "synthetic": {
+      "corpus_id": "05eb5c6c742dfed929a374468f7b0bce268469703a4c39558bc5f752a195bd0b",
+      "frozen_manifest": "/note-sep-data/synthetic/corpus/FROZEN.json",
+      "frozen_sha256": "bd944797923d898ef33e01400e65a3af4a8e41c22bca941107d24bfdcb5184c0",
+      "identity_manifest": "/note-sep-data/synthetic/corpus/manifests/training_identities.json",
+      "identity_manifest_sha256": "adb3786a1d63a090f040313c9ccce6e85aa92306eec2e361e5cfb9d323a1cb08",
+      "identity_sha256": "08f6408bc9e9e53ec1004eec3bb1fb79e77ec3f20ac297f5ed70a1d850859786",
+      "ordinal_view": {
+        "counts": {
+          "train": 515644,
+          "validation": 2449
+        },
+        "mixture_overlap": 0,
+        "path": "/note-sep-data/synthetic/views/training.json",
+        "schema": "occurrence_synthetic_ordinal_view_v1",
+        "sha256": "f0923fde28f3d4406b8e152fb731b13ad8c1f17231bcb1307df0d7f05a5ebd5d"
+      },
+      "split_manifest_sha256s": {
+        "train": "6b41342aac8f6f0fa646ba5d79a345a19ab96fd600ae5ae1a2f2e490ccc1ed93"
+      },
+      "split_pairs": {
+        "train": 2000000
+      }
+    }
+  },
+  "initialization": {
+    "checkpoint": "/note-sep-checkpoints/notegrab/step-000000250.pt",
+    "checkpoint_sha256": "0441537c15c41764575122d3749278018c1191185f0b8000c0f339c35aa36623",
+    "loss_contract_match": true,
+    "model_contract_match": true,
+    "model_only": true,
+    "optimizer_reset": true,
+    "output_carrier_mode_change": null,
+    "schema": "dna_residual_v13_model_initialization_v1",
+    "source_global_step": 250,
+    "source_loss_contract": {
+      "branch_ownership_weights": {
+        "harmonic": 0.5,
+        "percussive": 0.5
+      },
+      "branch_source_losses": {
+        "harmonic": 0.25,
+        "percussive": 0.5
+      },
+      "combined_effective_target_loss": 0.25,
+      "complex_error_cap": 0.0,
+      "complex_weight": 1.0,
+      "correction_weight": 0.0,
+      "decomposition": {
+        "backbone": "tfc_tdf",
+        "explicit_residual_removal": false,
+        "harmonic_gate": "below_f0_input_only",
+        "input_gate_policy": "lower_member_exact_octave",
+        "input_gate_probability": 1.0,
+        "input_gate_sampling": "deterministic_score_directional",
+        "kernel_size": 31,
+        "margin": 1.0,
+        "optimized_sum_target": "ungated_hpss_harmonic_target+ordinary_hpss_percussive_target",
+        "output_carrier_mode": "ungated_hpss",
+        "percussive": "exact waveform complement target-H_hpss(target)",
+        "percussive_component_after_gate": "unchanged",
+        "percussive_parameterization": "ownership",
+        "percussive_phase_policy": "learned_complex_residual_plus_ownership",
+        "power": 2.0,
+        "reconstruction": "predicted_harmonic+predicted_percussive",
+        "selective_gate": {
+          "competitor_semitones": 12,
+          "minimum_overlap_fraction_of_shorter_note": 0.25,
+          "minimum_overlap_samples": 1280,
+          "relation": "target_is_lower_member_of_exact_octave_pair",
+          "score_index": "/note-sep-data/synthetic/indexes/tfc_score_condition_v1.sqlite",
+          "score_index_sha256": "730406847e80da9ce5fcbf01f5faf8b594eef73126040e3548bcc9e374a8f7be"
+        },
+        "type": "ordinary_hpss_harmonic_and_percussive"
+      },
+      "decomposition_device": "cuda",
+      "dna_conditioning": false,
+      "do_no_harm_weight": 0.0,
+      "envelope_weight": 0.2,
+      "gt_adaptive_harmonic_comb_loss": null,
+      "log_magnitude_weight": 0.5,
+      "name": "dual_harmonic_percussive_target_ownership_v1",
+      "phase_coherence_weight": 0.0,
+      "task": "direct_occurrence_dual_harmonic_percussive",
+      "training_augmentation": {
+        "detune_cents_limit": 20.0,
+        "detune_policy": "batch_shared_speed_perturbation_for_all_sources_with_rescaled_sample_geometry_and_nominal_midi_query",
+        "detune_probability": 0.35,
+        "gain_db_limit": 6.0,
+        "gain_policy": "same_per_example_gain_for_mixture_and_all_sources",
+        "gain_probability": 0.8,
+        "linear_echo_delay_ms_max": 24.0,
+        "linear_echo_delay_ms_min": 4.0,
+        "linear_echo_probability": 0.25,
+        "linear_echo_wet_limit": 0.16,
+        "linear_effect_policy": "same_causal_direct_plus_single_echo_per_example",
+        "noise_policy": "colored_mixture_only_noise_with_clean_target",
+        "noise_probability": 0.35,
+        "noise_snr_db_max": 40.0,
+        "noise_snr_db_min": 20.0,
+        "pitch_shift_policy": "batch_shared_length_preserving_integer_semitone_shift_with_per_source_rms_preservation_and_same_shift_applied_to_target_mixture_components_and_midi_query",
+        "pitch_shift_probability": 0.25,
+        "pitch_shift_semitones_limit": 2,
+        "sample_rate": 16000,
+        "type": "coherent_occurrence_waveform_robustness_v2",
+        "validation_policy": "clean_unaugmented"
+      },
+      "waveform_weight": 0.2
+    },
+    "target_loss_contract": {
+      "branch_ownership_weights": {
+        "harmonic": 0.5,
+        "percussive": 0.5
+      },
+      "branch_source_losses": {
+        "harmonic": 0.25,
+        "percussive": 0.5
+      },
+      "combined_effective_target_loss": 0.25,
+      "complex_error_cap": 0.0,
+      "complex_weight": 1.0,
+      "correction_weight": 0.0,
+      "decomposition": {
+        "backbone": "tfc_tdf",
+        "explicit_residual_removal": false,
+        "harmonic_gate": "below_f0_input_only",
+        "input_gate_policy": "lower_member_exact_octave",
+        "input_gate_probability": 1.0,
+        "input_gate_sampling": "deterministic_score_directional",
+        "kernel_size": 31,
+        "margin": 1.0,
+        "optimized_sum_target": "ungated_hpss_harmonic_target+ordinary_hpss_percussive_target",
+        "output_carrier_mode": "ungated_hpss",
+        "percussive": "exact waveform complement target-H_hpss(target)",
+        "percussive_component_after_gate": "unchanged",
+        "percussive_parameterization": "ownership",
+        "percussive_phase_policy": "learned_complex_residual_plus_ownership",
+        "power": 2.0,
+        "reconstruction": "predicted_harmonic+predicted_percussive",
+        "selective_gate": {
+          "competitor_semitones": 12,
+          "minimum_overlap_fraction_of_shorter_note": 0.25,
+          "minimum_overlap_samples": 1280,
+          "relation": "target_is_lower_member_of_exact_octave_pair",
+          "score_index": "/note-sep-data/synthetic/indexes/tfc_score_condition_v1.sqlite",
+          "score_index_sha256": "730406847e80da9ce5fcbf01f5faf8b594eef73126040e3548bcc9e374a8f7be"
+        },
+        "type": "ordinary_hpss_harmonic_and_percussive"
+      },
+      "decomposition_device": "cuda",
+      "dna_conditioning": false,
+      "do_no_harm_weight": 0.0,
+      "envelope_weight": 0.2,
+      "gt_adaptive_harmonic_comb_loss": null,
+      "log_magnitude_weight": 0.5,
+      "name": "dual_harmonic_percussive_target_ownership_v1",
+      "phase_coherence_weight": 0.0,
+      "task": "direct_occurrence_dual_harmonic_percussive",
+      "training_augmentation": {
+        "detune_cents_limit": 20.0,
+        "detune_policy": "batch_shared_speed_perturbation_for_all_sources_with_rescaled_sample_geometry_and_nominal_midi_query",
+        "detune_probability": 0.35,
+        "gain_db_limit": 6.0,
+        "gain_policy": "same_per_example_gain_for_mixture_and_all_sources",
+        "gain_probability": 0.8,
+        "linear_echo_delay_ms_max": 24.0,
+        "linear_echo_delay_ms_min": 4.0,
+        "linear_echo_probability": 0.25,
+        "linear_echo_wet_limit": 0.16,
+        "linear_effect_policy": "same_causal_direct_plus_single_echo_per_example",
+        "noise_policy": "colored_mixture_only_noise_with_clean_target",
+        "noise_probability": 0.35,
+        "noise_snr_db_max": 40.0,
+        "noise_snr_db_min": 20.0,
+        "pitch_shift_policy": "batch_shared_length_preserving_integer_semitone_shift_with_per_source_rms_preservation_and_same_shift_applied_to_target_mixture_components_and_midi_query",
+        "pitch_shift_probability": 0.25,
+        "pitch_shift_semitones_limit": 2,
+        "sample_rate": 16000,
+        "type": "coherent_occurrence_waveform_robustness_v2",
+        "validation_policy": "clean_unaugmented"
+      },
+      "waveform_weight": 0.2
+    }
+  },
+  "loss_contract": {
+    "branch_ownership_weights": {
+      "harmonic": 0.5,
+      "percussive": 0.5
+    },
+    "branch_source_losses": {
+      "harmonic": 0.25,
+      "percussive": 0.5
+    },
+    "combined_effective_target_loss": 0.25,
+    "complex_error_cap": 0.0,
+    "complex_weight": 1.0,
+    "correction_weight": 0.0,
+    "decomposition": {
+      "backbone": "tfc_tdf",
+      "explicit_residual_removal": false,
+      "harmonic_gate": "below_f0_input_only",
+      "input_gate_policy": "lower_member_exact_octave",
+      "input_gate_probability": 1.0,
+      "input_gate_sampling": "deterministic_score_directional",
+      "kernel_size": 31,
+      "margin": 1.0,
+      "optimized_sum_target": "ungated_hpss_harmonic_target+ordinary_hpss_percussive_target",
+      "output_carrier_mode": "ungated_hpss",
+      "percussive": "exact waveform complement target-H_hpss(target)",
+      "percussive_component_after_gate": "unchanged",
+      "percussive_parameterization": "ownership",
+      "percussive_phase_policy": "learned_complex_residual_plus_ownership",
+      "power": 2.0,
+      "reconstruction": "predicted_harmonic+predicted_percussive",
+      "selective_gate": {
+        "competitor_semitones": 12,
+        "minimum_overlap_fraction_of_shorter_note": 0.25,
+        "minimum_overlap_samples": 1280,
+        "relation": "target_is_lower_member_of_exact_octave_pair",
+        "score_index": "/note-sep-data/synthetic/indexes/tfc_score_condition_v1.sqlite",
+        "score_index_sha256": "730406847e80da9ce5fcbf01f5faf8b594eef73126040e3548bcc9e374a8f7be"
+      },
+      "type": "ordinary_hpss_harmonic_and_percussive"
+    },
+    "decomposition_device": "cuda",
+    "dna_conditioning": false,
+    "do_no_harm_weight": 0.0,
+    "envelope_weight": 0.2,
+    "gt_adaptive_harmonic_comb_loss": null,
+    "log_magnitude_weight": 0.5,
+    "name": "dual_harmonic_percussive_target_ownership_v1",
+    "phase_coherence_weight": 0.0,
+    "task": "direct_occurrence_dual_harmonic_percussive",
+    "training_augmentation": {
+      "detune_cents_limit": 20.0,
+      "detune_policy": "batch_shared_speed_perturbation_for_all_sources_with_rescaled_sample_geometry_and_nominal_midi_query",
+      "detune_probability": 0.35,
+      "gain_db_limit": 6.0,
+      "gain_policy": "same_per_example_gain_for_mixture_and_all_sources",
+      "gain_probability": 0.8,
+      "linear_echo_delay_ms_max": 24.0,
+      "linear_echo_delay_ms_min": 4.0,
+      "linear_echo_probability": 0.25,
+      "linear_echo_wet_limit": 0.16,
+      "linear_effect_policy": "same_causal_direct_plus_single_echo_per_example",
+      "noise_policy": "colored_mixture_only_noise_with_clean_target",
+      "noise_probability": 0.35,
+      "noise_snr_db_max": 40.0,
+      "noise_snr_db_min": 20.0,
+      "pitch_shift_policy": "batch_shared_length_preserving_integer_semitone_shift_with_per_source_rms_preservation_and_same_shift_applied_to_target_mixture_components_and_midi_query",
+      "pitch_shift_probability": 0.25,
+      "pitch_shift_semitones_limit": 2,
+      "sample_rate": 16000,
+      "type": "coherent_occurrence_waveform_robustness_v2",
+      "validation_policy": "clean_unaugmented"
+    },
+    "waveform_weight": 0.2
+  },
+  "model_contract": {
+    "architecture": {
+      "communication": {
+        "attention_heads": 8,
+        "direction_parameters": "untied",
+        "message_fusion": "residual_add",
+        "output_projection_initialization": "zeros",
+        "rungs": [
+          "deep_encoder",
+          "bottleneck",
+          "deep_decoder"
+        ],
+        "snapshot_policy": "both_directions_read_same_pre_fusion_states",
+        "type": "simultaneous_bidirectional_cross_attention"
+      },
+      "harmonic_branch": {
+        "architecture": {
+          "activation_checkpointing": true,
+          "conditioning_arm": "g2_film",
+          "head_final_projection_init": "zeros",
+          "head_hidden_channels": 64,
+          "head_layout": "independent_target_and_background_complex_heads",
+          "head_output_channels_each": 8,
+          "ownership_head": "sigmoid_magnitude_ratio_plus_free_complex_residuals",
+          "ownership_head_initial_bias": -2.0,
+          "trunk": "shared_sdx23_tfc_tdf_v3"
+        },
+        "conditioning": {
+          "absent_occurrence": "offset_equals_onset_with_zero_harmonic_activity",
+          "conditioning_channels": 32,
+          "harmonic_count": 60,
+          "harmonic_gaussian_bandwidth_hz": 7.5,
+          "onset_region_samples": 1600,
+          "pitch_embedding_dim": 16,
+          "release_region_samples": 4000,
+          "score_channels": [
+            "target_harmonic_held",
+            "onset",
+            "post_offset_harmonic_uncertainty",
+            "unused_3",
+            "unused_4"
+          ],
+          "type": "rt2_25hz_target_only_roll_plus_multiscale_film"
+        },
+        "config": {
+          "band_radius": 1.0,
+          "band_scale_floor_ratio": 0.001,
+          "bands": 24,
+          "conditioning_channels": 32,
+          "growth": 64,
+          "hop_length": 128,
+          "initial_channels": 64,
+          "maximum_correction_scale": 2.0,
+          "minimum_log_frequency": 31.25,
+          "n_fft": 1024,
+          "num_blocks_per_scale": 2,
+          "num_scales": 5,
+          "num_subbands": 4,
+          "pitch_embed_dim": 16,
+          "processed_frequency_bins": 512,
+          "sample_rate": 16000,
+          "tdf_bottleneck_factor": 4
+        },
+        "dna_conditioning": false,
+        "inputs": {
+          "audio_sources": [
+            "mixture"
+          ],
+          "compatibility_signature": true,
+          "ignored_audio_slots": [
+            "dna",
+            "other_dna",
+            "unassigned_residual"
+          ],
+          "internal_source_slots": "mixture_plus_three_zero_slots",
+          "normalization": "valid_mixture_rms_floor_1e-4",
+          "query": [
+            "pitch",
+            "onset_sample",
+            "offset_sample"
+          ]
+        },
+        "kind": "occurrence_ownership_tfc_tdf_separator_v1",
+        "outputs": {
+          "background": "background_waveform_istft",
+          "diagnostics": [
+            "raw_target_spectrum",
+            "raw_background_spectrum",
+            "projected_target_spectrum",
+            "projected_background_spectrum",
+            "projected_spectrum_reconstruction",
+            "target",
+            "background",
+            "waveform_reconstruction",
+            "ownership_logits",
+            "ownership_mask"
+          ],
+          "mixture_consistency": "projected_target_plus_background_equals_mixture_complex_stft",
+          "primary": "target_waveform_istft"
+        },
+        "parameter_count": 27414580,
+        "preset": "30m",
+        "residual_prediction": false,
+        "spectra": {
+          "processed_frequency_bins": 512,
+          "projection": "orthogonal_equal_correction_per_bin",
+          "projection_equation": "s=(mix-raw_target-raw_background)/2",
+          "raw_parameterization": "mixture_partition_from_ownership_plus_two_unbounded_complex_residuals",
+          "stft_center": true,
+          "stft_window": "periodic_hann",
+          "unprocessed_frequency_policy": "target_zero_background_mixture_passthrough",
+          "unsupported_frame_policy": "target_zero_background_mixture_passthrough"
+        }
+      },
+      "harmonic_parameterization": "ownership",
+      "layout": "symmetric_low_resolution_aligned_hpss_harmonic_and_percussive_branches",
+      "merge": "waveform_sum",
+      "output_carrier_mode": "ungated_hpss",
+      "percussive_branch": {
+        "architecture": {
+          "activation_checkpointing": true,
+          "conditioning_arm": "g2_film",
+          "head_final_projection_init": "zeros",
+          "head_hidden_channels": 64,
+          "head_layout": "independent_target_and_background_complex_heads",
+          "head_output_channels_each": 8,
+          "ownership_head": "sigmoid_magnitude_ratio_plus_free_complex_residuals",
+          "ownership_head_initial_bias": -2.0,
+          "trunk": "shared_sdx23_tfc_tdf_v3"
+        },
+        "conditioning": {
+          "absent_occurrence": "offset_equals_onset_with_zero_harmonic_activity",
+          "conditioning_channels": 32,
+          "harmonic_count": 60,
+          "harmonic_gaussian_bandwidth_hz": 7.5,
+          "onset_region_samples": 1600,
+          "pitch_embedding_dim": 16,
+          "release_region_samples": 4000,
+          "score_channels": [
+            "target_harmonic_held",
+            "onset",
+            "post_offset_harmonic_uncertainty",
+            "unused_3",
+            "unused_4"
+          ],
+          "type": "rt2_25hz_target_only_roll_plus_multiscale_film"
+        },
+        "config": {
+          "band_radius": 1.0,
+          "band_scale_floor_ratio": 0.001,
+          "bands": 24,
+          "conditioning_channels": 32,
+          "growth": 64,
+          "hop_length": 128,
+          "initial_channels": 64,
+          "maximum_correction_scale": 2.0,
+          "minimum_log_frequency": 31.25,
+          "n_fft": 1024,
+          "num_blocks_per_scale": 2,
+          "num_scales": 5,
+          "num_subbands": 4,
+          "pitch_embed_dim": 16,
+          "processed_frequency_bins": 512,
+          "sample_rate": 16000,
+          "tdf_bottleneck_factor": 4
+        },
+        "dna_conditioning": false,
+        "inputs": {
+          "audio_sources": [
+            "mixture"
+          ],
+          "compatibility_signature": true,
+          "ignored_audio_slots": [
+            "dna",
+            "other_dna",
+            "unassigned_residual"
+          ],
+          "internal_source_slots": "mixture_plus_three_zero_slots",
+          "normalization": "valid_mixture_rms_floor_1e-4",
+          "query": [
+            "pitch",
+            "onset_sample",
+            "offset_sample"
+          ]
+        },
+        "kind": "occurrence_ownership_tfc_tdf_separator_v1",
+        "outputs": {
+          "background": "background_waveform_istft",
+          "diagnostics": [
+            "raw_target_spectrum",
+            "raw_background_spectrum",
+            "projected_target_spectrum",
+            "projected_background_spectrum",
+            "projected_spectrum_reconstruction",
+            "target",
+            "background",
+            "waveform_reconstruction",
+            "ownership_logits",
+            "ownership_mask"
+          ],
+          "mixture_consistency": "projected_target_plus_background_equals_mixture_complex_stft",
+          "primary": "target_waveform_istft"
+        },
+        "parameter_count": 27414580,
+        "preset": "30m",
+        "residual_prediction": false,
+        "spectra": {
+          "processed_frequency_bins": 512,
+          "projection": "orthogonal_equal_correction_per_bin",
+          "projection_equation": "s=(mix-raw_target-raw_background)/2",
+          "raw_parameterization": "mixture_partition_from_ownership_plus_two_unbounded_complex_residuals",
+          "stft_center": true,
+          "stft_window": "periodic_hann",
+          "unprocessed_frequency_policy": "target_zero_background_mixture_passthrough",
+          "unsupported_frame_policy": "target_zero_background_mixture_passthrough"
+        }
+      },
+      "percussive_parameterization": "ownership"
+    },
+    "conditioning": {
+      "evaluation_positive_hold_ms": 0.0,
+      "explicit_lifecycle_labels": false,
+      "signed_offset_distance": false,
+      "states": [
+        "off",
+        "held",
+        "onset"
+      ],
+      "training_positive_hold_ms": [
+        0.0,
+        0.0
+      ],
+      "type": "rt2_25hz_target_only_roll"
+    },
+    "dna_conditioning": false,
+    "harmonic_gate": {
+      "application": [
+        "encoder_evidence"
+      ],
+      "below_f0_cutoff_hz": null,
+      "mode": "below_f0_input_only",
+      "percussive_component": "unchanged ordinary margin-1 HPSS percussive"
+    },
+    "inputs": {
+      "harmonic_branch": "HPSS harmonic mixture",
+      "harmonic_encoder_evidence": "pitch-gated HPSS harmonic mixture",
+      "harmonic_output_carrier": "ungated HPSS harmonic mixture",
+      "percussive_branch": "ordinary margin-1 HPSS percussive mixture",
+      "percussive_output_carrier": "ungated HPSS percussive mixture",
+      "query": [
+        "pitch",
+        "onset_sample",
+        "offset_sample"
+      ]
+    },
+    "kind": "occurrence_dual_hpss_separator_v1",
+    "outputs": {
+      "background": "exact branch-carrier complements summing to original mixture",
+      "harmonic": "HPSS harmonic target estimate",
+      "percussive": "ordinary margin-1 HPSS percussive target estimate",
+      "primary": "harmonic plus percussive target estimate"
+    },
+    "parameter_count": 57667688,
+    "preset": "30m"
+  },
+  "recorded_training_contract": {
+    "cohort_sha256": "60ef63dcfc2b8810f5738be26e1d95d7b8254ce9572290afd5795d2e857e1b92",
+    "dna_conditioning": false,
+    "endpoint": "acoustic_offset_exact_native_recording",
+    "full_acoustic_target_retained": true,
+    "held_at_crop_entry": "negative_onset_not_fabricated_onset_zero",
+    "input_geometry": "historical_variable_window_midi_anchor_acoustic_release_4000_2560_min16384_q4096",
+    "model_rows": "score-addressed isolated-note targets within complete source mixtures",
+    "residual_conditioning": false,
+    "roots": [
+      {
+        "freeze_sha256": "0cb6ad77710555af87438f94a88bbc34e2f2ce1116aa3e762b842cbbc04eddec",
+        "path": "/note-sep-data/recorded/shards/shard-00"
+      },
+      {
+        "freeze_sha256": "0642d2964639e8689553b23ae8ca6dd47fa73f1749b06b6fcc68f00ed2e77552",
+        "path": "/note-sep-data/recorded/shards/shard-01"
+      },
+      {
+        "freeze_sha256": "6622097ff2569a9693326a803b37de4d020562ebec7683b2f76d64de3734ba96",
+        "path": "/note-sep-data/recorded/shards/shard-02"
+      },
+      {
+        "freeze_sha256": "395c1a56888d61ef874df7d59555d81f3b1b6cf5d3c6dd230ec1c0d148eb5301",
+        "path": "/note-sep-data/recorded/shards/shard-03"
+      },
+      {
+        "freeze_sha256": "fedc2e2f58422594a624197a63962476b4af33dfb42299c173003cdf97fe0bf3",
+        "path": "/note-sep-data/recorded/shards/shard-04"
+      },
+      {
+        "freeze_sha256": "715e0fa17d52ae27bf8fc0bcb5354ac3a33d8a66c6e9976375064fcb4344145f",
+        "path": "/note-sep-data/recorded/shards/shard-05"
+      },
+      {
+        "freeze_sha256": "e0b6e47823a7cf4340543e94f8b104c96fb097c7ed9c87732a36fd1c02e3f9e3",
+        "path": "/note-sep-data/recorded/shards/shard-06"
+      },
+      {
+        "freeze_sha256": "14002b11eb3c3bd894bc2ed3c3ea2b014bf7e487bbbe135b864a9718c634a82c",
+        "path": "/note-sep-data/recorded/shards/shard-07"
+      }
+    ],
+    "scene_k_counts": {
+      "K2": 0,
+      "K4": 0
+    },
+    "scene_sampling_unit": false,
+    "scenes": 268,
+    "schema": "scns_eventcluster_training_binding_v1",
+    "split": "train",
+    "target_conditioning_offset": "exact_measured_acoustic_endpoint",
+    "target_rows": 2858,
+    "timing_view": "real_score_event_cluster"
+  },
+  "sampler_contract": {
+    "aggregate_16_coverage_authority": "/note-sep-data/recorded/authorities/instrument-coverage.json",
+    "allocation_unit": "model_rows_within_batch_not_optimizer_steps",
+    "audio_budget_contract": "reduce_cardinality_without_truncation; cumulative_20pct_with_per_batch_cap_1over3",
+    "batch_budget_length": "exact_target_crop_samples",
+    "causal_scope": "recorded_input_geometry_and_resulting_effective_exposure",
+    "duration_contract": "choose_score_bound_rows_then_promote_and_pad_batch_without_tail_truncation",
+    "endpoint": "acoustic_endpoint",
+    "evaluation_instrument_reweighting": "none",
+    "full_acoustic_target_retained": true,
+    "held_at_crop_entry": "negative_onset_not_fabricated_onset_zero",
+    "no_legacy_cross_instrument_events_schema": true,
+    "polyphonic_contract": "source_complete_real_Slakh_score_mixtures",
+    "real_example_fraction": 0.025542360512174084,
+    "recorded_fraction_bounds": [
+      0.025542360512174084,
+      0.025542360512174084
+    ],
+    "recorded_frozen_roots": [
+      "/note-sep-data/recorded/shards/shard-00",
+      "/note-sep-data/recorded/shards/shard-01",
+      "/note-sep-data/recorded/shards/shard-02",
+      "/note-sep-data/recorded/shards/shard-03",
+      "/note-sep-data/recorded/shards/shard-04",
+      "/note-sep-data/recorded/shards/shard-05",
+      "/note-sep-data/recorded/shards/shard-06",
+      "/note-sep-data/recorded/shards/shard-07"
+    ],
+    "recorded_input_geometry": "historical_variable_window_midi_anchor_acoustic_release_4000_2560_min16384_q4096",
+    "recorded_only_optimizer_steps": false,
+    "recorded_scene_contract": "source_complete_track_bound_slakh_windows",
+    "recorded_split": "train",
+    "resume_state": "optimizer_step",
+    "scene_mixture_crop": "same_crop_applied_to_mixture_target_and_full_score_coordinates",
+    "scene_schema": "recorded_natural_score_scene_freeze_v1",
+    "schema": "dna_residual_v13_sampler_v3",
+    "source_balance": "resume_stable_uniform_physical_source_parent",
+    "source_policy": "exact_native_pitch_closest_duration_no_waveform_transform",
+    "strategy": "scns_v3_parent_balanced_target_cropped_v1",
+    "synthetic_sampler": {
+      "acoustic_offset_index": {
+        "path": "/note-sep-data/synthetic/indexes/acoustic-offsets",
+        "release_policy": "max(fixed_release,detected_acoustic_release)",
+        "shard_markers_sha256": "b9782c8027653b7a317adcbb0666bc984620a0d44b36cd5e8a0d7cdece50ae8a"
+      },
+      "audio_budget_samples": 3200000,
+      "duration_index": "/note-sep-data/synthetic/indexes/duration-geometry",
+      "family_key": "sound_family",
+      "family_temperature_alpha": 1.0,
+      "lead_samples": 4000,
+      "maximum_dynamic_batch_size": 192,
+      "minimum_window_samples": 16384,
+      "ordinal_view": {
+        "path": "/note-sep-data/synthetic/views/training.json",
+        "sha256": "f0923fde28f3d4406b8e152fb731b13ad8c1f17231bcb1307df0d7f05a5ebd5d"
+      },
+      "release_samples": 2560,
+      "resume_state": "optimizer_step",
+      "schema": "dna_residual_v13_sampler_v2",
+      "strategy": "duration_bucket_audio_budget",
+      "virtual_epoch_pairs": "step_stateless",
+      "window_quantum": 4096
+    },
+    "target_conditioning_offset_all_source_families": "exact_measured_acoustic_endpoint"
+  },
+  "skip_initial_monitor": true,
+  "trained_from_scratch": false,
+  "validation_binding": {
+    "aggregate_weights": {
+      "recorded": 0.25,
+      "synthetic": 0.75
+    },
+    "recorded": {
+      "cohort_sha256": "64733dbe027657ef91ade14cd5333b739eea8a14f8f5c3df72c731c2f1eeb1eb",
+      "dna_conditioning": false,
+      "endpoint": "acoustic_offset_exact_native_recording",
+      "full_acoustic_target_retained": true,
+      "held_at_crop_entry": "negative_onset_not_fabricated_onset_zero",
+      "input_geometry": "historical_variable_window_midi_anchor_acoustic_release_4000_2560_min16384_q4096",
+      "model_rows": "score-addressed isolated-note targets within complete source mixtures",
+      "residual_conditioning": false,
+      "roots": [
+        {
+          "freeze_sha256": "0cb6ad77710555af87438f94a88bbc34e2f2ce1116aa3e762b842cbbc04eddec",
+          "path": "/note-sep-data/recorded/shards/shard-00"
+        },
+        {
+          "freeze_sha256": "0642d2964639e8689553b23ae8ca6dd47fa73f1749b06b6fcc68f00ed2e77552",
+          "path": "/note-sep-data/recorded/shards/shard-01"
+        },
+        {
+          "freeze_sha256": "6622097ff2569a9693326a803b37de4d020562ebec7683b2f76d64de3734ba96",
+          "path": "/note-sep-data/recorded/shards/shard-02"
+        },
+        {
+          "freeze_sha256": "395c1a56888d61ef874df7d59555d81f3b1b6cf5d3c6dd230ec1c0d148eb5301",
+          "path": "/note-sep-data/recorded/shards/shard-03"
+        },
+        {
+          "freeze_sha256": "fedc2e2f58422594a624197a63962476b4af33dfb42299c173003cdf97fe0bf3",
+          "path": "/note-sep-data/recorded/shards/shard-04"
+        },
+        {
+          "freeze_sha256": "715e0fa17d52ae27bf8fc0bcb5354ac3a33d8a66c6e9976375064fcb4344145f",
+          "path": "/note-sep-data/recorded/shards/shard-05"
+        },
+        {
+          "freeze_sha256": "e0b6e47823a7cf4340543e94f8b104c96fb097c7ed9c87732a36fd1c02e3f9e3",
+          "path": "/note-sep-data/recorded/shards/shard-06"
+        },
+        {
+          "freeze_sha256": "14002b11eb3c3bd894bc2ed3c3ea2b014bf7e487bbbe135b864a9718c634a82c",
+          "path": "/note-sep-data/recorded/shards/shard-07"
+        }
+      ],
+      "scene_k_counts": {
+        "K2": 0,
+        "K4": 0
+      },
+      "scene_sampling_unit": false,
+      "scenes": 63,
+      "schema": "scns_eventcluster_training_binding_v1",
+      "split": "validation",
+      "target_conditioning_offset": "exact_measured_acoustic_endpoint",
+      "target_rows": 777,
+      "timing_view": "real_score_event_cluster",
+      "train_validation_geometry_match": true
+    },
+    "schema": "dna_residual_v13_validation_binding_v1",
+    "synthetic": {
+      "cohort_sha256": "aded29cc543a650f1f676d3d5a5fb104b078ce717614bec20fe652404cfc2f22",
+      "count": 128,
+      "immutable": true,
+      "schema": "dna_residual_v13_synthetic_validation_cohort_v1",
+      "source_binding": {
+        "corpus_id": "05eb5c6c742dfed929a374468f7b0bce268469703a4c39558bc5f752a195bd0b",
+        "frozen_manifest": "/note-sep-data/synthetic/corpus/FROZEN.json",
+        "frozen_sha256": "bd944797923d898ef33e01400e65a3af4a8e41c22bca941107d24bfdcb5184c0",
+        "identity_manifest": "/note-sep-data/synthetic/corpus/manifests/training_identities.json",
+        "identity_manifest_sha256": "adb3786a1d63a090f040313c9ccce6e85aa92306eec2e361e5cfb9d323a1cb08",
+        "identity_sha256": "08f6408bc9e9e53ec1004eec3bb1fb79e77ec3f20ac297f5ed70a1d850859786",
+        "ordinal_view": {
+          "counts": {
+            "train": 515644,
+            "validation": 2449
+          },
+          "mixture_overlap": 0,
+          "path": "/note-sep-data/synthetic/views/training.json",
+          "schema": "occurrence_synthetic_ordinal_view_v1",
+          "sha256": "f0923fde28f3d4406b8e152fb731b13ad8c1f17231bcb1307df0d7f05a5ebd5d"
+        },
+        "split_manifest_sha256s": {
+          "train": "6b41342aac8f6f0fa646ba5d79a345a19ab96fd600ae5ae1a2f2e490ccc1ed93"
+        },
+        "split_pairs": {
+          "train": 2000000
+        }
+      },
+      "split": "validation"
+    }
+  }
+}

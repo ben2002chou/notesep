@@ -4,7 +4,7 @@ import sqlite3
 import zipfile
 
 from notesep.training_paths import configure
-from training.packed_metadata_overlay import PackedMetadataOverlay
+from training.stage_metadata import PackedMetadataOverlay
 
 
 def test_archived_metadata_reads_relocated_audio_shard(tmp_path):

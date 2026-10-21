@@ -1,0 +1,25 @@
+{
+  "helper_sha256": {
+    "src/notesep/training_paths.py": "82dc56e9e5c083e8d96f6970341e34df39641ce565d056f5bdbe03a79a3346a0",
+    "src/notesep/training_resume.py": "bae0fa2fb4836fb4c47dc84842aa36832ad40776d03f7b58ac2e78f116d05d51"
+  },
+  "source_files_sha256": {
+    "aso_data.py": "b6cd639b92afc393d4be292f762cc14f8ba5279719a91834ad809ccd63f0c8f3",
+    "aso_engine.py": "c672379c29ea185d3b42039ff047e7567945500986df9bebc3eb3800dbec2915",
+    "docs/exact_score_update.md": "f9b74a5da9cb9db0670bb3006c2c69393b24a46933cfb79f72b7485fc8b06579",
+    "docs/resume_update.md": "19b64939c42c7696a387e29827ad5243c17000e1cd111f30c34adb284fca6060",
+    "docs/training_protocol.md": "c689418c734a94ec34d973135154402d376401fb78a720742b65eb53602e6b70",
+    "scripts/train_acoustic_ownership.py": "fa52a6c3b187a8a797b60e2b57679b50f2cce73e0cbf4ccebfbd03e81eb20029",
+    "src/model_exp/__init__.py": "a41778592977060ba668984c8b8a1d085e3f754bb2c10a9dce972142ae86bce8",
+    "src/model_exp/acoustic_multiplicative_temporal_ownership.py": "d28706b678b7a7e19328de69d2105d51d7de6d161b647b1fd6dfb599b804690f",
+    "src/model_exp/corpus.py": "bc8fc14129ea33576d8e4d085b3bfa0b79e0ad57fbc33012a130047a17572f31",
+    "src/model_exp/fresh_source_complete_data.py": "8548e2a16e38a0cb300be3fbf4aa1be368afd98c582e989498e322cd7231dc83",
+    "src/model_exp/occurrence_full_score_data.py": "9b31265e907b512f3ffb939138f1ad5cea947677ec61b932db7c8e8dd0d1ae10",
+    "src/model_exp/packed_blob_shards.py": "f40363801b86d78db9ce2b751800b31eb576ef2ead245fd863315452b2166dd8",
+    "src/model_exp/recorded_natural_score_scene_data.py": "5acffd9fc2b40f75a44f51f9a2ecde6caaeff61e008804b37300eeda11a418e4",
+    "src/model_exp/simplex.py": "ac4b1904bb6d71cffa1f24e16b8ab53175f5a08ccd82a6f7faf40ece9d3f8d6c",
+    "src/model_exp/streaming_dataset.py": "7aac43a33038fe1b525d7b4ea8712ad7287054cf3c63444b51f5d05d87ed78b0",
+    "src/model_exp/temporal_hybrid_set_ownership.py": "8ca430ef7a7f8aba4d6f049aa358508a0f43f172d2ff566e8888ec2a926ed961"
+  },
+  "source_root": "training/aso"
+}
