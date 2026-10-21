@@ -5,6 +5,26 @@ The recipe launchers validate data and checkpoint inputs before calling the
 paper training implementation. Large datasets and initialization checkpoints
 are supplied separately.
 
+Download a dataset snapshot from its Hugging Face dataset repository at an
+immutable commit, then use the generated path map in the training command:
+
+```sh
+notesep download-data --output /path/to/notegrab-data \
+  --repo-id ORGANIZATION/DATASET --revision DATASET_COMMIT
+```
+
+The command checks every file against the dataset manifest. If you already
+have the files, use `--manifest /path/to/manifest.json` instead.
+
+Download the exact NoteGrab step-250 initialization checkpoint:
+
+```sh
+python training/download_initial_checkpoint.py --output /path/to/checkpoints
+```
+
+Pass `/path/to/checkpoints/0441537c.pt` as `data.initialization` in the
+NoteGrab command below.
+
 | File or folder | Purpose |
 | --- | --- |
 | `train_notegrab.py` | Launches the NoteGrab training recipe. |

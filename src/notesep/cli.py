@@ -18,15 +18,6 @@ def main(argv=None):
     training_data.add_argument('--repo-id', help='Hugging Face dataset repository')
     training_data.add_argument('--revision', help='Immutable dataset commit')
     training_data.add_argument('--manifest', type=Path, help='Verify a local dataset')
-    transcribe = sub.add_parser('transcribe', help='Draft an editable selected-window score')
-    transcribe.add_argument('audio', type=Path)
-    transcribe.add_argument('--output', type=Path, required=True)
-    transcribe.add_argument('--provider', choices=['yourmt3', 'muscriptor_public', 'muscriptor_local'], default='yourmt3')
-    transcribe.add_argument('--instrument', default='')
-    transcribe.add_argument('--device', choices=['auto', 'cpu', 'cuda', 'mps'], default='auto')
-    transcribe.add_argument('--model-file', type=Path, help='Pinned MuScriptor safetensors with sibling config.json')
-    transcribe.add_argument('--window-start', type=float, default=0.0)
-    transcribe.add_argument('--window-seconds', type=float)
     separate = sub.add_parser('separate', help='Separate an aligned MIDI/JSON score')
     separate.add_argument('audio', type=Path)
     separate.add_argument('--score', type=Path, required=True)
@@ -53,15 +44,6 @@ def main(argv=None):
     render.add_argument('--output', type=Path, required=True)
     args = parser.parse_args(argv)
     try:
-        if args.command == 'transcribe':
-            from .transcription import transcribe_audio
-            if args.output.exists() and any(args.output.iterdir()):
-                raise FileExistsError('Draft output directory must be empty')
-            draft = transcribe_audio(args.audio, provider=args.provider, instrument=args.instrument,
-                device=args.device, model_file=args.model_file,
-                window_start=args.window_start, window_seconds=args.window_seconds)
-            print(draft.export(args.output))
-            return
         if args.command in ('download', 'verify'):
             print(json.dumps((download if args.command == 'download' else verify)(profile=args.profile), indent=2))
         elif args.command == 'download-data':

@@ -73,9 +73,9 @@ Each project contains aligned 16 kHz mono WAVs (`note-0000-midi-<pitch>.wav`, et
 <details>
 <summary>Training and repository map</summary>
 
-Paper training uses separate datasets and initialization checkpoints that are
-not included in this repository. See [`training/README.md`](training/README.md)
-for the two training commands and their input requirements.
+Paper training uses separate datasets and initialization checkpoints. The
+training guide shows how to download a dataset snapshot and run each recipe:
+[`training/README.md`](training/README.md).
 
 ## Repository layout
 
@@ -85,7 +85,6 @@ for the two training commands and their input requirements.
 | `src/model_exp/` | Model architecture and checkpoint-loading code used by inference |
 | `configs/` | Hydra training recipes and their stage settings |
 | `training/` | Paper training launchers, data readers, samplers, and source checks |
-| `tests/` | Unit and browser-facing checks for public tools and training helpers |
 | `train.py` | Selects and launches a configured training recipe |
 | `pyproject.toml` | Package metadata and optional dependency groups |
 | `THIRD_PARTY_NOTICES.md` | Licenses and notices for included third-party code |

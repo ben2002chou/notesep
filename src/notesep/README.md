@@ -23,7 +23,6 @@
 | `training_paths.py` | Maps portable training paths to local roots. |
 | `training_resume.py` | Checks scientific identity when relocating training resumes. |
 | `training_window.py` | Computes training audio crop geometry. |
-| `transcription.py` | Transcription interface and result normalization. |
 | `transcription_checks.py` | Validates transcription output. |
 | `legal/` | Third-party licensing materials. |
 | `studio_static/` | Browser editor and its bundled assets. |

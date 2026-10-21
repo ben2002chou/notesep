@@ -15,32 +15,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-studio = ["gradio==6.28.0", "spaces==0.51.3", "requests>=2.31,<3"]
-transcription = ["gradio-client==2.7.1", "requests>=2.31,<3"]
+studio = [
+  "gradio==6.28.0", "gradio-client==2.7.1", "spaces==0.51.3",
+  "requests>=2.31,<3",
+]
 muscriptor-local = ["muscriptor==0.3.0"]
 baseline = ["scikit-learn>=1.5,<1.8"]
-research = ["mir_eval==0.8.2", "pretty_midi==0.2.11", "matplotlib>=3.7,<4", "scikit-learn>=1.5,<1.8"]
 train = ["hydra-core==1.3.2", "torchaudio>=2.3,<2.11"]
-benchmark-editing = ["torchaudio>=2.3,<2.11"]
-instrument-eval = ["museval @ https://github.com/DavidDiazGuerra/sigsep-mus-eval/archive/e2db7c552e7e58ef12b6ae34b4efb7a48fb289b4.zip", "musdb==0.4.3"]
-test = ["pytest>=8,<10", "ruff>=0.15,<0.16"]
 
 [project.scripts]
 notesep = "notesep.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
-
-[tool.ruff]
-line-length = 80
-target-version = "py310"
-
-[tool.ruff.lint]
-select = ["E", "F", "I"]
 
 [tool.setuptools.package-data]
 notesep = ["studio_static/**/*", "studio_static/*", "legal/*"]
