@@ -23,7 +23,9 @@ def configure(path=None):
             raise ValueError("Destination must be a nonempty path")
         original = Path(old)
         if not original.is_absolute() or ".." in original.parts:
-            raise ValueError("Original prefix must be an absolute normalized path")
+            raise ValueError(
+                "Original prefix must be an absolute normalized path"
+            )
         destination = Path(new).expanduser()
         if not destination.is_absolute():
             destination = document.parent / destination
@@ -31,7 +33,9 @@ def configure(path=None):
 
     if len({old for old, _ in rows}) != len(rows):
         raise ValueError("Duplicate normalized path prefix")
-    _mapping = tuple(sorted(rows, key=lambda row: len(row[0].parts), reverse=True))
+    _mapping = tuple(
+        sorted(rows, key=lambda row: len(row[0].parts), reverse=True)
+    )
 
 
 def relocated(path):

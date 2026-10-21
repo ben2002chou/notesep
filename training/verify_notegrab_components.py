@@ -1,7 +1,5 @@
-"""Validate recovered NoteGrab component contracts without training or admission."""
+"""Validate recovered NoteGrab contracts without training or admission."""
 
-from pathlib import Path
-from types import SimpleNamespace
 import argparse
 import hashlib
 import inspect
@@ -9,11 +7,15 @@ import json
 import os
 import socket
 import sys
+from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = ROOT / "training/notegrab/recovered"
 EXTERNAL = ROOT / "training/notegrab/external"
-CONTRACT_SHA = "2513370316570deaafa2625674de9cb1d4f6c98668cf3a33147b13bcbd7a98fb"
+CONTRACT_SHA = (
+    "2513370316570deaafa2625674de9cb1d4f6c98668cf3a33147b13bcbd7a98fb"
+)
 
 
 def sha(path):
@@ -33,7 +35,9 @@ def differences(actual, expected, path=""):
                 [
                     {
                         "path": path + "/" + key,
-                        "missing": "actual" if key not in actual else "expected",
+                        "missing": (
+                            "actual" if key not in actual else "expected"
+                        ),
                     }
                 ]
                 if key not in actual or key not in expected
@@ -58,7 +62,9 @@ def main():
     if (
         not args.source_only
         and "gilbreth" in socket.gethostname().lower()
-        and (not os.environ.get("SLURM_JOB_ID") or "-fe" in socket.gethostname())
+        and (
+            not os.environ.get("SLURM_JOB_ID") or "-fe" in socket.gethostname()
+        )
     ):
         raise RuntimeError("Use a Slurm compute allocation on Gilbreth")
     if args.output is not None and args.output.exists():
@@ -104,7 +110,9 @@ def main():
         OCCURRENCE_SELECTIVE_SOURCE_ROOT=str(EXTERNAL / "selective"),
         OCCURRENCE_FACTORIAL_SOURCE_ROOT=str(EXTERNAL / "factorial"),
         OCCURRENCE_FULL_SCORE_INDEX=str(relocated(gate["score_index"])),
-        REAL_EXAMPLE_FRACTION=str(contract["arguments"]["real_example_fraction"]),
+        REAL_EXAMPLE_FRACTION=str(
+            contract["arguments"]["real_example_fraction"]
+        ),
         MAX_STEPS=str(contract["arguments"]["max_steps"]),
         SCNS_MINIMUM_REAL_EXAMPLE_FRACTION=str(
             contract["arguments"]["real_example_fraction"]
@@ -113,7 +121,9 @@ def main():
             contract["arguments"]["real_example_fraction"]
         ),
         SCNS_V3_COMBINED_INSTRUMENT_COVERAGE_AUTHORITY=str(
-            relocated(contract["sampler_contract"]["aggregate_16_coverage_authority"])
+            relocated(
+                contract["sampler_contract"]["aggregate_16_coverage_authority"]
+            )
         ),
     )
     sys.path.insert(0, str(OVERLAY / "scripts"))
@@ -160,13 +170,17 @@ def main():
     resolved = {
         "sampler": inspect.getsourcefile(base.DeterministicMixedBatchSampler),
         "gate": inspect.getsourcefile(selective.lower_member_exact_octave_gate),
-        "augmentation": inspect.getsourcefile(selective.apply_occurrence_augmentation),
+        "augmentation": inspect.getsourcefile(
+            selective.apply_occurrence_augmentation
+        ),
         "base": base.__file__,
         "selective": selective.__file__,
     }
     for name in resolved.values():
         if str(Path(name).relative_to(ROOT)) not in sources:
-            raise ValueError("Runtime dependency outside recovered closure: " + name)
+            raise ValueError(
+                "Runtime dependency outside recovered closure: " + name
+            )
     passed = not any(comparison.values())
     report = {
         "status": "passed" if passed else "contract_mismatch",
@@ -179,13 +193,19 @@ def main():
         "source_files": len(sources),
         "source_sha256": sources,
         "runtime_resolution": {
-            key: str(Path(value).relative_to(ROOT)) for key, value in resolved.items()
+            key: str(Path(value).relative_to(ROOT))
+            for key, value in resolved.items()
         },
         "contract_differences": comparison,
         "observed_contracts": observed,
         "optimizer_updates": 0,
         "original_execution_verified": False,
-        "scope": "Real recovered component import and original score-index hash; exact model/loss/sampler contract comparison. No data-loader/exposure, optimizer, parent-source admission or launch-bound executed closure proof.",
+        "scope": (
+            "Real recovered component import and original score-index hash; "
+            "exact model/loss/sampler contract comparison. No data-loader/"
+            "exposure, optimizer, parent-source admission or launch-bound "
+            "executed closure proof."
+        ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

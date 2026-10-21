@@ -19,7 +19,7 @@
   "root": "training/aso",
   "schema": "notesep_aso_source_hashes_v1",
   "transport_helpers_sha256": {
-    "src/notesep/training_paths.py": "78dcb240cfa803e991b875593b0a5ec477d20321515e4c42bda19da2527d9546",
-    "src/notesep/training_resume.py": "30a0023ca671b10157e7876cb8706c9bdb43530ffa0917987885348403bb4dfc"
+    "src/notesep/training_paths.py": "82dc56e9e5c083e8d96f6970341e34df39641ce565d056f5bdbe03a79a3346a0",
+    "src/notesep/training_resume.py": "bae0fa2fb4836fb4c47dc84842aa36832ad40776d03f7b58ac2e78f116d05d51"
   }
 }

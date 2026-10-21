@@ -1,11 +1,17 @@
 """Run the portable exact ASO trainer with explicit pinned input identities."""
 
+import argparse
+import hashlib
+import json
+import os
+import socket
+import subprocess
+import sys
 from pathlib import Path
-import argparse, hashlib, json, os, socket, subprocess, sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from notesep.training_paths import configure, relocated
+from notesep.training_paths import configure, relocated  # noqa: E402
 
 
 def main():
@@ -18,7 +24,10 @@ def main():
     parser.add_argument(
         "--deterministic",
         action="store_true",
-        help="Explicit deterministic Torch/cuDNN/cuBLAS policy; saved runtime must match on resume",
+        help=(
+            "Explicit deterministic Torch/cuDNN/cuBLAS policy; saved runtime "
+            "must match on resume"
+        ),
     )
     args = parser.parse_args()
     settings = json.loads(args.config.read_text())
@@ -29,7 +38,8 @@ def main():
         and (args.mode or settings["mode"]) != "canary"
     ):
         raise ValueError(
-            "The regenerated release cache is admitted for the 320-step canary only; full training admission remains separate"
+            "The regenerated release cache is admitted for the 320-step "
+            "canary only; full training admission remains separate"
         )
     provenance = json.loads((ROOT / "training/aso_provenance.json").read_text())
     source = ROOT / provenance["root"]
@@ -38,7 +48,9 @@ def main():
             raise ValueError("Training source identity mismatch: " + name)
     for name, checksum in provenance["transport_helpers_sha256"].items():
         if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != checksum:
-            raise ValueError("Training transport helper identity mismatch: " + name)
+            raise ValueError(
+                "Training transport helper identity mismatch: " + name
+            )
     prereg = ROOT / settings["preregistration"]
     if (
         hashlib.sha256(prereg.read_bytes()).hexdigest()
@@ -74,9 +86,12 @@ def main():
     policy_sidecar = args.output.resolve().with_name(
         args.output.name + ".RUNTIME_POLICY.json"
     )
-    if (policy_path.exists() or policy_sidecar.exists()) and not args.deterministic:
+    if (
+        policy_path.exists() or policy_sidecar.exists()
+    ) and not args.deterministic:
         raise ValueError(
-            "This output was started with --deterministic; retain that flag on resume"
+            "This output was started with --deterministic; retain that "
+            "flag on resume"
         )
     if args.deterministic:
         runtime = ROOT / "training/train_aso_deterministic_entry.py"
@@ -109,7 +124,10 @@ def main():
             ]
             if not path.is_file()
         ],
-        "scope": "Exact pinned-input training command; a dry run is not dataset admission or execution evidence.",
+        "scope": (
+            "Exact pinned-input training command; a dry run is not dataset "
+            "admission or execution evidence."
+        ),
     }
     print(json.dumps(report, indent=2), flush=True)
     if report["missing_inputs"]:
@@ -119,11 +137,17 @@ def main():
     if args.dry_run:
         return
     host = socket.gethostname().lower()
-    if "gilbreth" in host and (not os.environ.get("SLURM_JOB_ID") or "-fe" in host):
-        raise RuntimeError("Run training in Slurm compute, never on a login node")
+    if "gilbreth" in host and (
+        not os.environ.get("SLURM_JOB_ID") or "-fe" in host
+    ):
+        raise RuntimeError(
+            "Run training in Slurm compute, never on a login node"
+        )
     env = os.environ.copy()
     env["PREREG_SHA256"] = settings["preregistration_sha256"]
-    env["PYTHONPATH"] = str(ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (
+        str(ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")
+    )
     result = subprocess.run(command, cwd=ROOT, env=env)
     raise SystemExit(result.returncode)
 

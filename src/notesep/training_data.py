@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path, PurePosixPath
 import re
+from pathlib import Path, PurePosixPath
 
 
 def dataset_files(manifest: dict) -> list[tuple[PurePosixPath, int, str]]:
@@ -66,9 +66,12 @@ def write_path_map(manifest: dict, output: Path) -> Path | None:
     if not isinstance(locations, dict) or not locations:
         raise ValueError("Dataset path_map must name its source roots")
     if any(
-        name == PurePosixPath("path-map.json") for name, _, _ in dataset_files(manifest)
+        name == PurePosixPath("path-map.json")
+        for name, _, _ in dataset_files(manifest)
     ):
-        raise ValueError("Dataset files cannot replace the generated path-map.json")
+        raise ValueError(
+            "Dataset files cannot replace the generated path-map.json"
+        )
     output = output.resolve()
     mapping = {}
     for original, relative in locations.items():

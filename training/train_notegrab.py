@@ -1,16 +1,16 @@
-"""Run the recovered NoteGrab continuation components as a declared reconstruction.
+"""Run recovered NoteGrab continuation components as a reconstruction.
 
 This entry point does not claim recovery of the missing historical executed
 closure. It binds all available source components and the original continuation
 contract, verifies model/loss/sampler contracts, and calls the real trainer.
 """
 
-from pathlib import Path
 import argparse
 import json
 import os
 import socket
 import sys
+from pathlib import Path
 
 import verify_notegrab_components as components
 
@@ -35,7 +35,9 @@ def apply_data_root(options):
     paths = {row["path"]: row for row in manifest["files"]}
     name = "packed-metadata-overlay/manifest.json"
     options.path_map = root / "path-map.json"
-    options.packed_metadata_archive = root / "packed-metadata-overlay/payload.zip"
+    options.packed_metadata_archive = (
+        root / "packed-metadata-overlay/payload.zip"
+    )
     options.packed_metadata_manifest = root / name
     options.packed_metadata_manifest_sha256 = paths[name]["sha256"]
 
@@ -47,12 +49,18 @@ def main():
     parser.add_argument(
         "--canary-steps",
         type=int,
-        help="Explicit diagnostic stop override; omitted means original 5000-step recipe",
+        help=(
+            "Explicit diagnostic stop override; omitted means original "
+            "5000-step recipe"
+        ),
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Check sources, contracts, parser and checkpoint bytes without training",
+        help=(
+            "Check sources, contracts, parser and checkpoint bytes "
+            "without training"
+        ),
     )
     parser.add_argument("--packed-metadata-archive", type=Path)
     parser.add_argument("--packed-metadata-manifest", type=Path)
@@ -74,9 +82,12 @@ def main():
     ):
         raise RuntimeError("Use a Slurm compute allocation on Gilbreth")
     if options.output.exists() or (
-        options.canary_steps is not None and not 1 <= options.canary_steps <= 5000
+        options.canary_steps is not None
+        and not 1 <= options.canary_steps <= 5000
     ):
-        raise ValueError("New output and positive bounded canary steps required")
+        raise ValueError(
+            "New output and positive bounded canary steps required"
+        )
     packed = [
         options.packed_metadata_archive,
         options.packed_metadata_manifest,
@@ -85,7 +96,9 @@ def main():
     if any(value is not None for value in packed) and not all(
         value is not None for value in packed
     ):
-        raise ValueError("All packed metadata overlay arguments required together")
+        raise ValueError(
+            "All packed metadata overlay arguments required together"
+        )
     options.output.mkdir(parents=True)
     sys.path.insert(0, str(components.ROOT / "src"))
     from notesep.training_paths import configure, relocated
@@ -99,7 +112,9 @@ def main():
         components.sha(options.initialize_checkpoint)
         != contract["initialization"]["checkpoint_sha256"]
     ):
-        raise ValueError("Exact original model-only +250 initialization required")
+        raise ValueError(
+            "Exact original model-only +250 initialization required"
+        )
     os.environ.update(
         DNA_V13_SKIP_INITIAL_MONITOR="1",
         DNA_V13_TORCH_COMPILE=contract["compile_mode"],
@@ -170,7 +185,9 @@ def main():
         "component_validation_sha256": components.sha(
             options.output / "components.json"
         ),
-        "initialize_checkpoint_sha256": contract["initialization"]["checkpoint_sha256"],
+        "initialize_checkpoint_sha256": contract["initialization"][
+            "checkpoint_sha256"
+        ],
         "argv": argv,
         "declared_overrides": overrides,
         "dry_run": options.dry_run,
@@ -178,9 +195,15 @@ def main():
         "packed_metadata_transport_sha256": components.sha(
             Path(__file__).with_name("packed_metadata_overlay.py")
         ),
-        "scope": "Recovered scientific components and saved original recipe; exact historical source/exposure, full replay and corpus admission remain separate.",
+        "scope": (
+            "Recovered scientific components and saved original recipe; exact "
+            "historical source/exposure, full replay and corpus admission "
+            "remain separate."
+        ),
     }
-    (options.output / "recipe.json").write_text(json.dumps(plan, indent=2) + "\n")
+    (options.output / "recipe.json").write_text(
+        json.dumps(plan, indent=2) + "\n"
+    )
     if options.dry_run:
         print(
             json.dumps({"status": "passed_preflight", "optimizer_updates": 0}),
@@ -193,8 +216,8 @@ def main():
         raise RuntimeError("Training requires CUDA")
     overlay = None
     if packed[0] is not None:
-        from packed_metadata_overlay import PackedMetadataOverlay
         import model_exp.dna_residual_v13_streaming as streaming
+        from packed_metadata_overlay import PackedMetadataOverlay
 
         overlay = PackedMetadataOverlay(
             *packed, options.output / "packed-metadata-overlay"
@@ -212,7 +235,10 @@ def main():
 
         def finite(value):
             if torch.is_tensor(value):
-                if value.is_floating_point() and not torch.isfinite(value).all():
+                if (
+                    value.is_floating_point()
+                    and not torch.isfinite(value).all()
+                ):
                     raise ValueError("Nonfinite trained tensor")
                 return 1
             if isinstance(value, dict):
@@ -233,9 +259,15 @@ def main():
             "recipe_sha256": components.sha(options.output / "recipe.json"),
             "original_execution_verified": False,
             "training_reproducibility_verified": False,
-            "scope": "Actual declared reconstructed training and finite checkpoint only; independent repeat/resume and historical checkpoint reproduction remain unverified.",
+            "scope": (
+                "Actual declared reconstructed training and finite checkpoint "
+                "only; independent repeat/resume and historical checkpoint "
+                "reproduction remain unverified."
+            ),
         }
-        (options.output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
+        (options.output / "result.json").write_text(
+            json.dumps(report, indent=2) + "\n"
+        )
         print(json.dumps(report), flush=True)
     finally:
         if overlay is not None:
