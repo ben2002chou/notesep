@@ -13,7 +13,6 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 import hashlib
-import importlib.util
 import json
 import math
 import os
@@ -33,13 +32,8 @@ import model_exp  # noqa: E402,F401
 from model_exp.recorded_natural_score_scene_data import CompositeSyntheticSceneDataset, RecordedNaturalScoreSceneDataset  # noqa: E402
 
 
-selective_path = SELECTIVE_ROOT / "scripts/train_selective_gate.py"
-spec = importlib.util.spec_from_file_location("scns_eventcluster_selective", selective_path)
-if spec is None or spec.loader is None:
-    raise RuntimeError(f"cannot load frozen selective trainer: {selective_path}")
-selective = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(selective)
-base = selective.base
+import model_exp.occurrence_audio_augmentation as selective  # noqa: E402
+import scripts.train_separator as base  # noqa: E402
 
 _TRAIN_SCENES: "TelemetryEventClusterDataset | None" = None
 _REALIZED = {"optimizer_steps": 0, "scene_counts": {2: 0, 4: 0}, "row_counts": {2: 0, 4: 0}}

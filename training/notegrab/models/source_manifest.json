@@ -2,9 +2,7 @@
   "files": {
     "gating/src/model_exp/__init__.py": "bdb19a4f049c82cc20e4e56e780618022c03cbb9712a5037bf8ccd25924d0e9c",
     "gating/src/model_exp/directional_selective_gate.py": "3567fbd74104defaef19f758ab5140582c0a951647920011ddca31a4ecc49709",
-    "separator/scripts/train_separator.py": "050ce016969432435c53d3f10380c5e361d1bd933edc5fc0567a3351450d9f7e",
-    "separator/scripts/train_separator_finetune.py": "aed64388fd8b56442b13691b1e3044597a646f1b89f31fdfacb7b17d844220ce",
-    "separator/scripts/train_source_ood_canary.py": "a09d2e53966237d381ae0746f9792ef47a11d5a5c76d837caa3153d971e40a8d",
+    "separator/scripts/train_separator.py": "535e03e53e326b82cc96777c1c3da74fb53ce02a65664c694e63bbc7eccd4119",
     "separator/src/model_exp/batching.py": "594dcd2ce3c10c3f3c1f165b9c25d858072823d4755d993fbd5a1b353387e03c",
     "separator/src/model_exp/corpus.py": "9b6dd06d6ccea04d91c8e06c13086d831309e4325518c65419a72a307da85917",
     "separator/src/model_exp/dna_harmonic_partial_loss.py": "4a92cf513227864d0a7a01e0257e1fe38d70561e17aa0138808934353ef18b5a",
@@ -17,7 +15,6 @@
     "separator/src/model_exp/dna_residual_tfc_tdf_unet.py": "8d20fc5f964c90a0f8475ebfe2d70a6d169010afb9e2a0ec2115b54c5ba8fffb",
     "separator/src/model_exp/harmonic_target.py": "0952cb86871b641cc7bcba905bd41e319158512b90a79e1f6bb4564c4962692d",
     "separator/src/model_exp/hpss_target.py": "ab123f1abb8b954aeab62eeb2b506c016f018ba8b73d4a8b6e7a083bbecfb584",
-    "separator/src/model_exp/literal_residual_canary_store.py": "810a351fc8ac36e3b83efeb2c464ddb02cdbb6b212c95642ab52446f57ce4dbb",
     "separator/src/model_exp/occurrence_audio_augmentation.py": "fcfe77af35e90c4c44fb8ac0001841b8ed697faed86b5eb30077daa8648a6063",
     "separator/src/model_exp/occurrence_dual_harmonic_residual_separator.py": "6b154064f7ef30df531ce9138fd84fdc282df8e91516a971d7790b39b36fd7a6",
     "separator/src/model_exp/occurrence_dual_hpss_separator.py": "988a201b1ee59693a888aa2212ed675eda3e60a0dcd90853dfbc1fdb13a67f5a",
@@ -27,6 +24,7 @@
     "separator/src/model_exp/occurrence_subtraction_diagnostics.py": "bb40f13eb5d09a7efad25ef3cb1087ab58c755e4780f515196fc01eebb35ec5d",
     "separator/src/model_exp/packed_blob_shards.py": "24a9de42c7e853bda9a70eeea6ab5e2ef6a5b2dbb2be0434123c8ed82fc6eb44",
     "separator/src/model_exp/pitch_relative_harmonic_gate.py": "9e954218f5340179cbb2f709d6ccffc2942e2a8d1d97b4e7b360b3a8cc09c4a9",
+    "separator/src/model_exp/residual_source_data.py": "092b82889c09029de58d726ce53ccea54bda8fbb40837018e0f8cdba6d7c78e1",
     "separator/src/model_exp/samplers.py": "2d5c477d8d1ef3fae78f304fb341ebb9ff3abd723b091604b6a85892612cb454",
     "separator/src/model_exp/streaming_dataset.py": "7e68d613a8e4ebc81913292118b0dde1fd46b4ea244d0550917f2a93c736f396",
     "separator/src/model_exp/training_contract.py": "2aa6d7978fd4bf677d50cc1e3965717e523c3689438a4e5540ce69c495936488"

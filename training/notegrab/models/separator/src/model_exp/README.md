@@ -15,7 +15,6 @@
 | `dna_residual_tfc_tdf_unet.py` | Defines the TFC-TDF U-Net backbone. |
 | `harmonic_target.py` | Builds harmonic training targets. |
 | `hpss_target.py` | Builds harmonic/percussive training targets. |
-| `literal_residual_canary_store.py` | Reads the residual canary examples. |
 | `occurrence_audio_augmentation.py` | Applies training audio augmentation. |
 | `occurrence_dual_harmonic_residual_separator.py` | Defines the dual harmonic residual separator. |
 | `occurrence_dual_hpss_separator.py` | Defines the selected dual HPSS separator. |
@@ -28,3 +27,4 @@
 | `samplers.py` | Produces deterministic, resume-safe training batches. |
 | `streaming_dataset.py` | Loads score-addressed examples lazily from the corpus. |
 | `training_contract.py` | Defines the selected model and loss settings. |
+| `residual_source_data.py` | Reads residual examples used by the NoteGrab trainer. |

@@ -59,7 +59,7 @@ from model_exp.streaming_dataset import (  # noqa: E402
     V13StreamingResidualDataset,
 )
 from model_exp.batching import collate_v13  # noqa: E402
-from scripts.train_source_ood_canary import (  # noqa: E402
+from model_exp.residual_source_data import (  # noqa: E402
     load_frozen_residual_rows,
     target_complete_window,
 )
