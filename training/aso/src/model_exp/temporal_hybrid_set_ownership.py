@@ -15,7 +15,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint_sequential
 
-from .adaptive_sparse_ownership import sparsemax_notes
+from .simplex import sparsemax_notes
 
 
 FeatureSet = Literal[

@@ -47,8 +47,6 @@ def main(cfg: DictConfig) -> None:
             "arm": "acoustic_multiplicative",
             "mode": cfg.training.mode,
             "seed": int(cfg.training.seed),
-            "initialization": "scratch",
-            "regret_reference": "best_raw_or_magnitude",
             "fresh_index": required_path(cfg.data.fresh_index, "data.fresh_index"),
             "recorded_root": required_path(
                 cfg.data.recorded_root, "data.recorded_root"

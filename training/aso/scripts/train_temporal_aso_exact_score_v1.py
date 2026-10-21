@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Matched exact-additive Temporal ASO control and onset/offset experiment."""
+"""Train the selected acoustic-multiplicative ASO used by the paper pipeline."""
 from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import math
 import os
@@ -24,57 +23,27 @@ ROOT = Path(__file__).resolve().parents[1]
 import sys
 sys.path[:0] = [str(ROOT / "src"), str(ROOT), str(ROOT / "scripts")]
 
-import train_aso_scaled_source_diverse_v1 as scaled  # noqa: E402
+import aso_data as scaled  # noqa: E402
 from model_exp.fresh_source_complete_data import FreshSourceCompleteDataset  # noqa: E402
 from model_exp.recorded_natural_score_scene_data import (  # noqa: E402
     RecordedNaturalScoreSceneDataset,
-)
-from model_exp.score_coordinate_exact_temporal_ownership import (  # noqa: E402
-    ScoreCoordinateExactTemporalOwnership,
-)
-from model_exp.score_boundary_residual_exact_temporal_ownership import (  # noqa: E402
-    ScoreBoundaryResidualExactTemporalOwnership,
-)
-from model_exp.zero_sum_complex_exact_temporal_ownership import (  # noqa: E402
-    ZeroSumComplexExactTemporalOwnership,
 )
 from model_exp.temporal_hybrid_set_ownership import (  # noqa: E402
     TemporalHybridOwnershipConfig,
     TemporalHybridSetOwnership,
 )
-from model_exp.acoustic_support_temporal_ownership import (  # noqa: E402
-    AcousticSupportTemporalOwnership,
-)
 from model_exp.acoustic_multiplicative_temporal_ownership import (  # noqa: E402
     AcousticMultiplicativeTemporalOwnership,
 )
-from model_exp.acoustic_adaptive_trust_temporal_ownership import (  # noqa: E402
-    AcousticAdaptiveTrustTemporalOwnership,
-)
-from model_exp.acoustic_per_note_delta_trust_temporal_ownership import (  # noqa: E402
-    AcousticPerNoteDeltaTrustTemporalOwnership,
-)
 
 
-LEGACY_SPEC = importlib.util.spec_from_file_location(
-    "temporal_aso_legacy_runner", ROOT / "scripts/train_temporal_hybrid_aso_v1.py"
-)
-assert LEGACY_SPEC is not None and LEGACY_SPEC.loader is not None
-legacy = importlib.util.module_from_spec(LEGACY_SPEC)
-LEGACY_SPEC.loader.exec_module(legacy)
+import aso_engine as engine  # noqa: E402
 
 SEED = 20260909
 FRESH_SHA256 = "202391feb2dc99ef94d28181783f325022de546733004011a9a7a68556e0c958"
 FRESH_AUTHORITY_SHA256 = "711659391e8f93849e0f2595061003fed584fef47d54526684e92a595ed203eb"
 RECORDED_SHA256 = "24c30535b171b19a6ce06b29d886aece2f1cd65d7828f4f719c928df5ea534c7"
 PROPOSAL_VALIDATION_SHA256 = "e5d12608fc6a8d143a61b36d3f51ec1afa122abeaff7d29aad4e50bac4c74124"
-WARM_START_SHA256 = "a7657fabe82693e19e79defb43f404b6820af5775c78a0e5623c06b356cf251b"
-BOUNDARY_PARENT_SHA256 = "586c8b8271496260d1423a12436f8dd1522d799deea23cd474490c61e307969b"
-PREREG = ROOT / "docs/preregister_temporal_aso_exact_score_v1_20260909.md"
-BOUNDARY_PREREG = ROOT / "docs/preregister_temporal_aso_boundary_residual_v1_20260909.md"
-BOUNDARY_PREREG_SHA256 = "8766e890e1f8dada25306671c9f28957e6fb639fa5064f9fabe86a32f3c11286"
-COMPLEX_PREREG = ROOT / "docs/preregister_zero_sum_complex_temporal_aso_v1_20260909.md"
-COMPLEX_PREREG_SHA256 = "6c091f563f367533e39bc4ca927e27d8193bcf8c968570c4f3807a25e54cd739"
 AMENDMENT = ROOT / "docs/amendment_temporal_aso_exact_score_v1b_20260909.md"
 AMENDMENT_SHA256 = "f9b74a5da9cb9db0670bb3006c2c69393b24a46933cfb79f72b7485fc8b06579"
 RESUME_AMENDMENT = ROOT / "docs/amendment_temporal_aso_scaled_variants_v2b_resume_20260909.md"
@@ -88,12 +57,7 @@ PRE_RESUME_RUNNER_SHA256S = {
     "3e0f70765cd6f8a35f630d0e2538b700fb5d12a70d8fa58f892c4eff755a0ade",
 }
 STOP = False
-ACOUSTIC_MULTIPLICATIVE_ARMS = {
-    "acoustic_multiplicative",
-    "acoustic_multiplicative_raw_total",
-    "acoustic_multiplicative_adaptive_trust",
-    "acoustic_multiplicative_per_note_delta_trust",
-}
+FINAL_ARM = "acoustic_multiplicative"
 
 
 def sha256(path: Path) -> str:
@@ -163,38 +127,23 @@ def shuffled_call(model: TemporalHybridSetOwnership, record: dict[str, Any]):
     return call(model, shifted)
 
 
-def select_regret_reference(
-    magnitude_log_distortion: torch.Tensor,
-    raw_log_distortion: torch.Tensor,
-    mode: str,
-) -> torch.Tensor:
-    """Choose the frozen per-note comparator for SI-regret training."""
-    if mode == "magnitude":
-        return magnitude_log_distortion
-    if mode == "best_raw_or_magnitude":
-        return torch.minimum(magnitude_log_distortion, raw_log_distortion)
-    raise ValueError(f"unknown regret reference: {mode}")
-
-
 def raw_protected_objective(candidate_spec: torch.Tensor, record: dict):
     """The existing SI-regret loss, protecting the better input proposal."""
     estimate = scaled.istft(candidate_spec[0], record["length"]).float()
     magnitude = scaled.istft(record["base"], record["length"]).float()
     raw = record["raw_wave"].float()
-    valid = legacy.risk.supervised_nonsilent(record)
+    valid = engine.supervised_nonsilent(record)
     target = record["targets_wave"].float()[valid]
-    candidate_log_d = legacy.risk._stable_log_si_distortion(estimate[valid], target)
-    magnitude_log_d = legacy.risk._stable_log_si_distortion(magnitude[valid], target)
-    raw_log_d = legacy.risk._stable_log_si_distortion(raw[valid], target)
-    baseline_log_d = select_regret_reference(
-        magnitude_log_d, raw_log_d, "best_raw_or_magnitude"
-    ).detach()
-    margin = legacy.risk.REGRET_MARGIN_DB * math.log(10.0) / 10.0
+    candidate_log_d = engine.stable_log_si_distortion(estimate[valid], target)
+    magnitude_log_d = engine.stable_log_si_distortion(magnitude[valid], target)
+    raw_log_d = engine.stable_log_si_distortion(raw[valid], target)
+    baseline_log_d = torch.minimum(magnitude_log_d, raw_log_d).detach()
+    margin = engine.REGRET_MARGIN_DB * math.log(10.0) / 10.0
     regret = torch.relu(candidate_log_d - baseline_log_d - margin)
     loss = (
         candidate_log_d.mean()
-        + legacy.risk.MEAN_REGRET_WEIGHT * regret.mean()
-        + legacy.risk.SQUARED_REGRET_WEIGHT * regret.square().mean()
+        + engine.MEAN_REGRET_WEIGHT * regret.mean()
+        + engine.SQUARED_REGRET_WEIGHT * regret.square().mean()
     )
     return loss, {
         "mean_log_si_distortion": candidate_log_d.mean(),
@@ -211,64 +160,20 @@ def raw_protected_objective(candidate_spec: torch.Tensor, record: dict):
 
 
 def initialize(
-    arm: str,
     config: TemporalHybridOwnershipConfig,
-    source: dict[str, Any] | None,
     device: torch.device,
 ) -> tuple[TemporalHybridSetOwnership, TemporalHybridSetOwnership, float]:
-    model_type = (
-        AcousticSupportTemporalOwnership
-        if arm == "acoustic_support"
-        else TemporalHybridSetOwnership
-    )
-    parent = model_type(config).to(device)
-    if source is not None:
-        parent.load_state_dict(source["model"], strict=True)
+    parent = TemporalHybridSetOwnership(config).to(device)
     parent_state = parent.state_dict()
-    if arm in {"exact_no_timing", "acoustic_support"}:
-        model: TemporalHybridSetOwnership = model_type(config).to(device)
-        model.load_state_dict(parent_state, strict=True)
-    elif arm in ACOUSTIC_MULTIPLICATIVE_ARMS:
-        model_class = {
-            "acoustic_multiplicative_adaptive_trust": (
-                AcousticAdaptiveTrustTemporalOwnership
-            ),
-            "acoustic_multiplicative_per_note_delta_trust": (
-                AcousticPerNoteDeltaTrustTemporalOwnership
-            ),
-        }.get(arm, AcousticMultiplicativeTemporalOwnership)
-        model = model_class(config).to(device)
-        target = model.state_dict()
-        for name, value in parent_state.items():
-            if name == "input.weight":
-                target[name].zero_()
-                target[name][:, : value.shape[1]].copy_(value)
-            else:
-                target[name].copy_(value)
-        model.load_state_dict(target, strict=True)
-    elif arm == "exact_boundary_residual":
-        model = ScoreBoundaryResidualExactTemporalOwnership(config).to(device)
-        target = model.state_dict()
-        for name, value in source["model"].items():
+    model = AcousticMultiplicativeTemporalOwnership(config).to(device)
+    target = model.state_dict()
+    for name, value in parent_state.items():
+        if name == "input.weight":
+            target[name].zero_()
+            target[name][:, : value.shape[1]].copy_(value)
+        else:
             target[name].copy_(value)
-        target["boundary_delta.weight"].zero_()
-        model.load_state_dict(target, strict=True)
-    elif arm == "exact_zero_sum_complex":
-        model = ZeroSumComplexExactTemporalOwnership(config).to(device)
-        target = model.state_dict()
-        for name, value in source["model"].items():
-            target[name].copy_(value)
-        model.load_state_dict(target, strict=True)
-    else:
-        model = ScoreCoordinateExactTemporalOwnership(config).to(device)
-        target = model.state_dict()
-        for name, value in parent_state.items():
-            if name == "input.weight":
-                target[name].zero_()
-                target[name][:, : value.shape[1]].copy_(value)
-            else:
-                target[name].copy_(value)
-        model.load_state_dict(target, strict=True)
+    model.load_state_dict(target, strict=True)
     return model, parent, 0.0
 
 
@@ -283,19 +188,7 @@ def atomic_json(path: Path, value: dict[str, Any]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--arm",
-        choices=(
-            "exact_no_timing", "exact_onset_offset", "exact_boundary_residual",
-            "exact_zero_sum_complex",
-            "acoustic_support",
-            "acoustic_multiplicative",
-            "acoustic_multiplicative_raw_total",
-            "acoustic_multiplicative_adaptive_trust",
-            "acoustic_multiplicative_per_note_delta_trust",
-        ),
-        required=True,
-    )
+    parser.add_argument("--arm", choices=(FINAL_ARM,), required=True)
     parser.add_argument("--mode", choices=("canary", "screen", "full"), required=True)
     parser.add_argument("--fresh-index", type=Path, required=True)
     parser.add_argument("--recorded-root", type=Path, required=True)
@@ -309,17 +202,8 @@ def main() -> int:
             "supply their independently validated hash explicitly."
         ),
     )
-    parser.add_argument("--warm-start", type=Path)
-    parser.add_argument(
-        "--initialization", choices=("warm_start", "scratch"), default="warm_start"
-    )
     parser.add_argument("--seed", type=int, default=SEED)
-    parser.add_argument(
-        "--regret-reference",
-        choices=("magnitude", "best_raw_or_magnitude"),
-        default="magnitude",
-    )
-    parser.add_argument("--scale-preregistration", type=Path)
+    parser.add_argument("--scale-preregistration", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--path-map", type=Path)
     args = parser.parse_args()
@@ -333,8 +217,6 @@ def main() -> int:
         args.output,
     ):
         scaled.forbid_test_path(path)
-    if args.warm_start is not None:
-        scaled.forbid_test_path(args.warm_start)
     if args.output.exists() and not (args.output / "RESUME.pt").exists():
         raise FileExistsError(args.output)
     proposal_validation_sha256 = args.expected_proposal_validation_sha256.lower()
@@ -344,41 +226,10 @@ def main() -> int:
         raise ValueError("invalid expected proposal validation SHA-256")
     if sha256(args.proposal_root / "VALIDATION.json") != proposal_validation_sha256:
         raise ValueError("proposal cache validation hash mismatch")
-    if args.initialization == "scratch":
-        if args.warm_start is not None:
-            raise ValueError("scratch initialization forbids a warm start")
-        if args.arm not in {
-            "exact_no_timing", "exact_onset_offset", "acoustic_support",
-            "acoustic_multiplicative",
-            "acoustic_multiplicative_raw_total",
-            "acoustic_multiplicative_adaptive_trust",
-            "acoustic_multiplicative_per_note_delta_trust",
-        }:
-            raise ValueError("scratch scaling is limited to the matched exact arms")
-        if args.scale_preregistration is None:
-            raise ValueError("scratch scaling requires a preregistration")
-        active_prereg = args.scale_preregistration
-        expected_prereg_sha256 = os.environ.get("PREREG_SHA256")
-        expected_warm_start = None
-    elif args.warm_start is None:
-        raise ValueError("warm_start initialization requires --warm-start")
-    else:
-        expected_warm_start = (
-            BOUNDARY_PARENT_SHA256
-            if args.arm in {"exact_boundary_residual", "exact_zero_sum_complex"}
-            else WARM_START_SHA256
-        )
-        if sha256(args.warm_start) != expected_warm_start:
-            raise ValueError("warm-start checkpoint hash mismatch")
-    if args.initialization != "scratch" and args.arm == "exact_boundary_residual":
-        active_prereg = BOUNDARY_PREREG
-        expected_prereg_sha256 = BOUNDARY_PREREG_SHA256
-    elif args.initialization != "scratch" and args.arm == "exact_zero_sum_complex":
-        active_prereg = COMPLEX_PREREG
-        expected_prereg_sha256 = COMPLEX_PREREG_SHA256
-    elif args.initialization != "scratch":
-        active_prereg = PREREG
-        expected_prereg_sha256 = os.environ.get("PREREG_SHA256")
+    if args.scale_preregistration is None:
+        raise ValueError("the final recipe requires its pinned preregistration")
+    active_prereg = args.scale_preregistration
+    expected_prereg_sha256 = os.environ.get("PREREG_SHA256")
     if sha256(active_prereg) != expected_prereg_sha256:
         raise ValueError("preregistration hash mismatch")
     if sha256(AMENDMENT) != AMENDMENT_SHA256:
@@ -403,38 +254,12 @@ def main() -> int:
         feature_set="essential6",
         phase_mode="mixture",
         temporal_blocks=2,
-        exact_mixture_additivity=args.arm not in {
-            "acoustic_support", *ACOUSTIC_MULTIPLICATIVE_ARMS,
-        },
-        magnitude_reference=(
-            "raw_total"
-            if args.arm == "acoustic_multiplicative_raw_total"
-            else "mixture"
-        ),
+        exact_mixture_additivity=False,
+        magnitude_reference="mixture",
     )
-    source = (
-        torch.load(args.warm_start, map_location="cpu", weights_only=False)
-        if args.warm_start is not None else None
-    )
-    if source is not None and args.arm in {"exact_boundary_residual", "exact_zero_sum_complex"}:
-        if (
-            source.get("step") != 2000
-            or source.get("contract", {}).get("arm") != "exact_no_timing"
-            or not source.get("contract", {}).get("model_contract", {}).get(
-                "exact_mixture_additivity"
-            )
-        ):
-            raise ValueError("boundary parent checkpoint contract mismatch")
-    elif source is not None and (
-        source.get("step") != 29058
-        or source.get("contract", {}).get("arm") != "essential6_temporal_mixture"
-    ):
-        raise ValueError("warm-start model contract mismatch")
-    model, parent, _ = initialize(args.arm, config, source, device)
-    del source
-    if args.regret_reference == "best_raw_or_magnitude":
-        legacy.risk._objective = raw_protected_objective
-    schedule, singleton_ids = scaled.make_schedule(authorities, "small_full")
+    model, parent, _ = initialize(config, device)
+    engine.objective = raw_protected_objective
+    schedule, singleton_ids = scaled.make_schedule(authorities)
     if args.mode == "canary":
         schedule = schedule[:320]
         maximum_mixtures = 16
@@ -453,18 +278,10 @@ def main() -> int:
     model.eval()
     parent.eval()
     with torch.no_grad():
-        candidate_initial, candidate_diag = call(model, parity_record)
-        parent_initial, parent_diag = call(parent, parity_record)
+        candidate_initial, _ = call(model, parity_record)
+        parent_initial, _ = call(parent, parity_record)
     initialization_parity = float((candidate_initial - parent_initial).abs().amax())
-    initialization_complex_closure = float(candidate_diag["complex_closure_max_abs"])
-    parent_complex_closure = float(parent_diag["complex_closure_max_abs"])
-    if (
-        args.arm in ACOUSTIC_MULTIPLICATIVE_ARMS
-        and initialization_parity > 2e-6
-    ) or (
-        args.arm not in ACOUSTIC_MULTIPLICATIVE_ARMS
-        and initialization_parity != 0.0
-    ):
+    if initialization_parity > 2e-6:
         raise ValueError(f"matched initialization parity failed: {initialization_parity}")
     del candidate_initial, parent_initial, parity_record
 
@@ -473,13 +290,11 @@ def main() -> int:
         "arm": args.arm,
         "mode": args.mode,
         "seed": args.seed,
-        "initialization": args.initialization,
+        "initialization": "scratch",
         "steps": len(schedule),
         "model_contract": model.contract(),
         "parameters": sum(value.numel() for value in model.parameters()),
         "trainable_parameters": sum(value.numel() for value in model.parameters() if value.requires_grad),
-        "warm_start": str(args.warm_start.resolve()) if args.warm_start else None,
-        "warm_start_sha256": expected_warm_start,
         "fresh_index": str(args.fresh_index.resolve()),
         "fresh_index_sha256": FRESH_SHA256,
         "fresh_authority_sha256": FRESH_AUTHORITY_SHA256,
@@ -494,52 +309,13 @@ def main() -> int:
         "runner_sha256": sha256(Path(__file__)),
         "historical_runner_sha256": "4b08e16aa209d1309e611abf7bd23a83be5432bd8eeaa6573ecb9c174990daea",
         "model_source_sha256": sha256(ROOT / "src/model_exp/temporal_hybrid_set_ownership.py"),
-        "score_model_source_sha256": sha256(ROOT / "src/model_exp/score_coordinate_exact_temporal_ownership.py"),
-        "acoustic_multiplicative_model_source_sha256": (
-            sha256(ROOT / "src/model_exp/acoustic_multiplicative_temporal_ownership.py")
-            if args.arm in ACOUSTIC_MULTIPLICATIVE_ARMS else None
+        "acoustic_multiplicative_model_source_sha256": sha256(
+            ROOT / "src/model_exp/acoustic_multiplicative_temporal_ownership.py"
         ),
-        "acoustic_adaptive_trust_model_source_sha256": (
-            sha256(ROOT / "src/model_exp/acoustic_adaptive_trust_temporal_ownership.py")
-            if args.arm == "acoustic_multiplicative_adaptive_trust" else None
-        ),
-        "acoustic_per_note_delta_trust_model_source_sha256": (
-            sha256(
-                ROOT
-                / "src/model_exp/acoustic_per_note_delta_trust_temporal_ownership.py"
-            )
-            if args.arm == "acoustic_multiplicative_per_note_delta_trust"
-            else None
-        ),
-        "acoustic_support_model_source_sha256": (
-            sha256(ROOT / "src/model_exp/acoustic_support_temporal_ownership.py")
-            if args.arm == "acoustic_support" else None
-        ),
-        "boundary_residual_source_sha256": (
-            sha256(ROOT / "src/model_exp/score_boundary_residual_exact_temporal_ownership.py")
-            if args.arm == "exact_boundary_residual" else None
-        ),
-        "zero_sum_complex_source_sha256": (
-            sha256(ROOT / "src/model_exp/zero_sum_complex_exact_temporal_ownership.py")
-            if args.arm == "exact_zero_sum_complex" else None
-        ),
-        "objective": (
-            "waveform SI-regret against the better of raw proposal and magnitude partition, "
-            "plus target ownership and TF smoothness"
-            if args.regret_reference == "best_raw_or_magnitude"
-            else "unchanged waveform SI-regret plus target ownership and TF smoothness"
-        ),
-        "regret_reference": args.regret_reference,
-        "boundary_inputs": (
-            "signed onset and measured acoustic-offset coordinates only"
-            if args.arm in ACOUSTIC_MULTIPLICATIVE_ARMS
-            else "signed symbolic onset and MIDI-offset coordinates only"
-        ),
-        "acoustic_endpoint_role": (
-            "model input, target support, and evaluation diagnostic"
-            if args.arm in ACOUSTIC_MULTIPLICATIVE_ARMS
-            else "target support and evaluation diagnostic only"
-        ),
+        "objective": "waveform SI-regret against the better of raw proposal and magnitude partition, plus target ownership and TF smoothness",
+        "regret_reference": "best_raw_or_magnitude",
+        "boundary_inputs": "signed onset and measured acoustic-offset coordinates only",
+        "acoustic_endpoint_role": "model input, target support, and evaluation diagnostic",
         "singleton_identity_count": len(singleton_ids),
         "test_data_used": False,
     }
@@ -567,7 +343,7 @@ def main() -> int:
         start = int(payload["step"])
         history = list(payload["history"])
 
-    legacy.call = call
+    engine.call = call
     started = time.monotonic()
     try:
         for position in range(start, len(schedule)):
@@ -575,7 +351,7 @@ def main() -> int:
             record = authorities.record(kind, "train", index, device)
             model.train()
             optimizer.zero_grad(set_to_none=True)
-            loss, diagnostics = legacy.train_loss(model, record)
+            loss, diagnostics = engine.train_loss(model, record)
             if not bool(torch.isfinite(loss)):
                 raise ValueError("nonfinite training loss")
             loss.backward()
@@ -610,113 +386,45 @@ def main() -> int:
                     "optimizer": optimizer.state_dict(),
                     "history": history,
                 }
-                legacy.atomic_torch(resume, payload)
+                engine.atomic_torch(resume, payload)
                 if done in checkpoints:
-                    legacy.atomic_torch(args.output / f"checkpoint-step-{done:06d}.pt", payload)
+                    engine.atomic_torch(args.output / f"checkpoint-step-{done:06d}.pt", payload)
             if STOP:
                 return 75
 
-        legacy.call = call
-        development = legacy.evaluate(model, authorities, maximum_mixtures, parent=parent)
-        shuffled = None
-        if args.arm in {
-            "exact_onset_offset", "exact_boundary_residual",
-            "acoustic_multiplicative",
-            "acoustic_multiplicative_raw_total",
-            "acoustic_multiplicative_adaptive_trust",
-            "acoustic_multiplicative_per_note_delta_trust",
-        }:
-            legacy.call = shuffled_call
-            shuffled = legacy.evaluate(model, authorities, maximum_mixtures, parent=None)
-            legacy.call = call
-            correct_by_id = {
-                (row["dataset_kind"], row["mixture_id"], row["note"]): row
-                for row in development["events"]
-            }
-            shuffled_delta = np.asarray([
-                correct_by_id[(row["dataset_kind"], row["mixture_id"], row["note"])]["candidate"]["si_sdr_db"]
-                - row["candidate"]["si_sdr_db"]
-                for row in shuffled["events"]
-            ])
-            shuffled["correct_minus_shuffled"] = {
-                "median_db": float(np.median(shuffled_delta)),
-                "mean_db": float(np.mean(shuffled_delta)),
-                "correct_wins_gt_0p1db": int((shuffled_delta > 0.1).sum()),
-                "shuffled_wins_gt_0p1db": int((shuffled_delta < -0.1).sum()),
-            }
+        engine.call = call
+        development = engine.evaluate(model, authorities, maximum_mixtures, parent=parent)
+        engine.call = shuffled_call
+        shuffled = engine.evaluate(model, authorities, maximum_mixtures, parent=None)
+        engine.call = call
+        correct_by_id = {
+            (row["dataset_kind"], row["mixture_id"], row["note"]): row
+            for row in development["events"]
+        }
+        shuffled_delta = np.asarray([
+            correct_by_id[(row["dataset_kind"], row["mixture_id"], row["note"])]
+            ["candidate"]["si_sdr_db"] - row["candidate"]["si_sdr_db"]
+            for row in shuffled["events"]
+        ])
+        shuffled["correct_minus_shuffled"] = {
+            "median_db": float(np.median(shuffled_delta)),
+            "mean_db": float(np.mean(shuffled_delta)),
+            "correct_wins_gt_0p1db": int((shuffled_delta > 0.1).sum()),
+            "shuffled_wins_gt_0p1db": int((shuffled_delta < -0.1).sum()),
+        }
 
         final_checkpoint = args.output / f"checkpoint-step-{len(schedule):06d}.pt"
         gates = {
             "initialization_numerically_matched": initialization_parity <= 2e-6,
-            (
-                "initial_complex_closure_not_expected"
-                if args.arm in {"acoustic_support", *ACOUSTIC_MULTIPLICATIVE_ARMS}
-                else "initial_complex_closure_lte_5e_minus5"
-            ): (
-                True
-                if args.arm in {"acoustic_support", *ACOUSTIC_MULTIPLICATIVE_ARMS}
-                else max(initialization_complex_closure, parent_complex_closure) <= 5e-5
-            ),
+            "initial_complex_closure_not_expected": True,
             "training_completed": bool(history) and history[-1]["step"] == len(schedule),
             "all_parameters_finite": all(bool(torch.isfinite(value).all()) for value in model.state_dict().values()),
             "coverage_nonempty": development["coverage"] > 0,
-            (
-                "magnitude_closure_recorded_not_scale_gate"
-                if args.arm in {"exact_boundary_residual", "exact_zero_sum_complex"}
-                or args.initialization == "scratch"
-                else "magnitude_closure_lte_5e_minus5"
-            ): (
-                True
-                if args.arm in {"exact_boundary_residual", "exact_zero_sum_complex"}
-                or args.initialization == "scratch"
-                else development["maximum_magnitude_closure_abs"] <= 5e-5
-            ),
-            (
-                "complex_closure_not_expected"
-                if args.arm in {"acoustic_support", *ACOUSTIC_MULTIPLICATIVE_ARMS}
-                else "complex_closure_lte_5e_minus5"
-            ): (
-                True
-                if args.arm in {"acoustic_support", *ACOUSTIC_MULTIPLICATIVE_ARMS}
-                else development["maximum_complex_closure_abs"] <= 5e-5
-            ),
-            (
-                "magnitude_closure_relative_recorded_not_expected"
-                if args.arm in {
-                    "exact_zero_sum_complex", "acoustic_support",
-                    "acoustic_multiplicative",
-                    "acoustic_multiplicative_raw_total",
-                    "acoustic_multiplicative_adaptive_trust",
-                    "acoustic_multiplicative_per_note_delta_trust",
-                }
-                else "magnitude_closure_relative_lte_2e_minus6"
-            ): (
-                True
-                if args.arm in {
-                    "exact_zero_sum_complex", "acoustic_support",
-                    "acoustic_multiplicative",
-                    "acoustic_multiplicative_raw_total",
-                    "acoustic_multiplicative_adaptive_trust",
-                    "acoustic_multiplicative_per_note_delta_trust",
-                }
-                else development["maximum_magnitude_closure_relative"] <= 2e-6
-            ),
-            (
-                "complex_closure_relative_not_expected"
-                if args.arm in {"acoustic_support", *ACOUSTIC_MULTIPLICATIVE_ARMS}
-                else "complex_closure_relative_lte_2e_minus6"
-            ): (
-                True
-                if args.arm in {"acoustic_support", *ACOUSTIC_MULTIPLICATIVE_ARMS}
-                else development["maximum_complex_closure_relative"] <= 2e-6
-            ),
-            "no_catastrophic_canary_instability": (
-                True
-                if args.initialization == "scratch"
-                else development["comparisons"]["candidate_minus_parent"]["losses_gt_3db"] <= 2
-                if args.mode == "canary"
-                else True
-            ),
+            "magnitude_closure_recorded_not_scale_gate": True,
+            "complex_closure_not_expected": True,
+            "magnitude_closure_relative_recorded_not_expected": True,
+            "complex_closure_relative_not_expected": True,
+            "no_catastrophic_canary_instability": True,
             "test_data_unused": True,
         }
         result = {
@@ -755,7 +463,7 @@ def main() -> int:
         }, indent=2), flush=True)
         return 0 if result["status"] == "passed" else 2
     finally:
-        legacy.call = call
+        engine.call = call
         authorities.close()
 
 
