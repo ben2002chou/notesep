@@ -32,8 +32,9 @@ import model_exp  # noqa: E402,F401
 from model_exp.recorded_natural_score_scene_data import CompositeSyntheticSceneDataset, RecordedNaturalScoreSceneDataset  # noqa: E402
 
 
-import model_exp.occurrence_audio_augmentation as selective  # noqa: E402
-import scripts.train_separator as base  # noqa: E402
+import scripts.train_notegrab_separator as selective  # noqa: E402
+
+base = selective.base
 
 _TRAIN_SCENES: "TelemetryEventClusterDataset | None" = None
 _REALIZED = {"optimizer_steps": 0, "scene_counts": {2: 0, 4: 0}, "row_counts": {2: 0, 4: 0}}
