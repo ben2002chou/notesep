@@ -45,6 +45,9 @@ notesep render separated/project.json --output edited.wav
 
 Use `--window-start` and `--window-seconds` to select a 1.1–12 second passage from a longer recording. Scores can be MIDI or JSON; by default, their times refer to the full recording. See `notesep separate --help` for the remaining options.
 
+<details>
+<summary>Python API and output files</summary>
+
 ## Python API
 
 ```python
@@ -65,51 +68,24 @@ sf.write("edited.wav", edited, bank.sample_rate)
 
 Each project contains aligned 16 kHz mono WAVs (`note-0000-midi-<pitch>.wav`, etc.), `sum.wav`, `score.json`, and `project.json`. Neural projects may also contain `raw-*.wav` estimates from before joint separation. You can import the note WAVs into a DAW or reopen the project to keep editing.
 
-## Training
+</details>
 
-The training recipes are separate from the inference and editing tools. They
-need the paper training data and the matching initialization checkpoint; those
-large inputs are not included in this code repository. Install the training
-dependencies with:
+<details>
+<summary>Training and repository map</summary>
 
-```sh
-python -m pip install -e ".[train]"
-```
-
-The default NoteGrab recipe resumes from the supplied initialization
-checkpoint. Run it with explicit paths:
-
-```sh
-python train.py stage=notegrab run.dir=outputs/notegrab \
-  data.root=/path/to/notegrab-data \
-  data.initialization=/path/to/initialization.pt
-```
-
-For ASO, provide its fresh index and the recorded and proposal data roots:
-
-```sh
-python train.py stage=aso run.dir=outputs/aso \
-  data.fresh_index=/path/to/fresh-index.json \
-  data.recorded_root=/path/to/recorded-data \
-  data.proposal_root=/path/to/proposal-data \
-  training.proposal_validation_sha256=<validated-sha256>
-```
-
-Each data root must match the expected manifest and hashes. The NoteGrab
-package's `path-map.json` maps the portable data locations in its recipe to
-your local folders. Run `python train.py --cfg job` to inspect the selected
-configuration without starting training. The files and their roles are listed
-in the README files under `configs/` and `training/`.
+Paper training uses separate datasets and initialization checkpoints that are
+not included in this repository. See [`training/README.md`](training/README.md)
+for the two training commands and their input requirements.
 
 ## Repository layout
 
 | Path | Purpose |
 | --- | --- |
-| `src/notesep/` | Public Python API, command-line tools, Studio, and inference support |
+| `src/notesep/` | Python API, command-line tools, Studio, and inference support |
 | `src/model_exp/` | Model architecture and checkpoint-loading code used by inference |
 | `configs/` | Hydra training recipes and their stage settings |
 | `training/` | Paper training launchers, data readers, samplers, and source checks |
-| `tests/` | Unit and browser-facing checks for the public tools and training helpers |
+| `tests/` | Unit and browser-facing checks for public tools and training helpers |
 | `train.py` | Selects and launches a configured training recipe |
 | `pyproject.toml` | Package metadata and optional dependency groups |
 | `THIRD_PARTY_NOTICES.md` | Licenses and notices for included third-party code |
@@ -117,6 +93,8 @@ in the README files under `configs/` and `training/`.
 | `LICENSE` | License for this repository |
 | `LICENSING.md` | Licensing notes for the repository and bundled assets |
 | `.gitignore` | Excludes local environments, caches, and generated files from Git |
+
+</details>
 
 ## Citation
 
