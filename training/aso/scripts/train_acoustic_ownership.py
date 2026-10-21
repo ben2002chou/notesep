@@ -8,37 +8,37 @@ import hashlib
 import json
 import math
 import os
-from pathlib import Path
 import random
 import signal
-from notesep.training_paths import configure
-from notesep.training_resume import validate_resume_contract
+import sys
 import time
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
-import sys
-
 sys.path[:0] = [str(ROOT / "src"), str(ROOT), str(ROOT / "scripts")]
 
 import aso_data as scaled  # noqa: E402
-from model_exp.fresh_source_complete_data import FreshSourceCompleteDataset  # noqa: E402
+import aso_engine as engine  # noqa: E402
+from model_exp.fresh_source_complete_data import (  # noqa: E402
+    FreshSourceCompleteDataset,
+)
 from model_exp.recorded_natural_score_scene_data import (  # noqa: E402
     RecordedNaturalScoreSceneDataset,
+)
+
+from model_exp.acoustic_multiplicative_temporal_ownership import (  # noqa: E402
+    AcousticMultiplicativeTemporalOwnership,
 )
 from model_exp.temporal_hybrid_set_ownership import (  # noqa: E402
     TemporalHybridOwnershipConfig,
     TemporalHybridSetOwnership,
 )
-from model_exp.acoustic_multiplicative_temporal_ownership import (  # noqa: E402
-    AcousticMultiplicativeTemporalOwnership,
-)
-
-
-import aso_engine as engine  # noqa: E402
+from notesep.training_paths import configure  # noqa: E402
+from notesep.training_resume import validate_resume_contract  # noqa: E402
 
 SEED = 20260909
 FRESH_SHA256 = (
@@ -212,9 +212,6 @@ def atomic_json(path: Path, value: dict[str, Any]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", choices=(FINAL_ARM,), required=True)
-    parser.add_argument(
-        "--mode", choices=("canary", "screen", "full"), required=True
-    )
     parser.add_argument("--fresh-index", type=Path, required=True)
     parser.add_argument("--recorded-root", type=Path, required=True)
     parser.add_argument("--proposal-root", type=Path, required=True)
@@ -293,14 +290,7 @@ def main() -> int:
     model, parent, _ = initialize(config, device)
     engine.objective = raw_protected_objective
     schedule, singleton_ids = scaled.make_schedule(authorities)
-    if args.mode == "canary":
-        schedule = schedule[:320]
-        maximum_mixtures = 16
-    elif args.mode == "screen":
-        schedule = schedule[:2000]
-        maximum_mixtures = 64
-    else:
-        maximum_mixtures = 0
+    maximum_mixtures = 0
 
     parity_kind, parity_index = next(
         (kind, index)
@@ -327,7 +317,7 @@ def main() -> int:
     contract = {
         "schema": "temporal_aso_exact_score_training_v1",
         "arm": args.arm,
-        "mode": args.mode,
+        "mode": "full",
         "seed": args.seed,
         "initialization": "scratch",
         "steps": len(schedule),
@@ -350,17 +340,26 @@ def main() -> int:
         "closure_amendment": str(AMENDMENT.resolve()),
         "closure_amendment_sha256": AMENDMENT_SHA256,
         "runner_sha256": sha256(Path(__file__)),
-        "historical_runner_sha256": "4b08e16aa209d1309e611abf7bd23a83be5432bd8eeaa6573ecb9c174990daea",
+        "historical_runner_sha256": (
+            "4b08e16aa209d1309e611abf7bd23a83be5432bd8eeaa6573ecb9c174990daea"
+        ),
         "model_source_sha256": sha256(
             ROOT / "src/model_exp/temporal_hybrid_set_ownership.py"
         ),
         "acoustic_multiplicative_model_source_sha256": sha256(
             ROOT / "src/model_exp/acoustic_multiplicative_temporal_ownership.py"
         ),
-        "objective": "waveform SI-regret against the better of raw proposal and magnitude partition, plus target ownership and TF smoothness",
+        "objective": (
+            "waveform SI-regret against the better of raw proposal and "
+            "magnitude partition, plus target ownership and TF smoothness"
+        ),
         "regret_reference": "best_raw_or_magnitude",
-        "boundary_inputs": "signed onset and measured acoustic-offset coordinates only",
-        "acoustic_endpoint_role": "model input, target support, and evaluation diagnostic",
+        "boundary_inputs": (
+            "signed onset and measured acoustic-offset coordinates only"
+        ),
+        "acoustic_endpoint_role": (
+            "model input, target support, and evaluation diagnostic"
+        ),
         "singleton_identity_count": len(singleton_ids),
         "test_data_used": False,
     }
@@ -489,7 +488,6 @@ def main() -> int:
         )
         gates = {
             "initialization_numerically_matched": initialization_parity <= 2e-6,
-            "initial_complex_closure_not_expected": True,
             "training_completed": bool(history)
             and history[-1]["step"] == len(schedule),
             "all_parameters_finite": all(
@@ -497,12 +495,6 @@ def main() -> int:
                 for value in model.state_dict().values()
             ),
             "coverage_nonempty": development["coverage"] > 0,
-            "magnitude_closure_recorded_not_scale_gate": True,
-            "complex_closure_not_expected": True,
-            "magnitude_closure_relative_recorded_not_expected": True,
-            "complex_closure_relative_not_expected": True,
-            "no_catastrophic_canary_instability": True,
-            "test_data_unused": True,
         }
         result = {
             "schema": "temporal_aso_exact_score_result_v1",

@@ -9,7 +9,7 @@
     "docs/exact_score_update.md": "f9b74a5da9cb9db0670bb3006c2c69393b24a46933cfb79f72b7485fc8b06579",
     "docs/resume_update.md": "19b64939c42c7696a387e29827ad5243c17000e1cd111f30c34adb284fca6060",
     "docs/training_protocol.md": "c689418c734a94ec34d973135154402d376401fb78a720742b65eb53602e6b70",
-    "scripts/train_acoustic_ownership.py": "fa52a6c3b187a8a797b60e2b57679b50f2cce73e0cbf4ccebfbd03e81eb20029",
+    "scripts/train_acoustic_ownership.py": "725851a7fc1a1a5a20cc8fcda93b3673021579734a628e70b02dc1dbeab82aaa",
     "src/model_exp/__init__.py": "a41778592977060ba668984c8b8a1d085e3f754bb2c10a9dce972142ae86bce8",
     "src/model_exp/acoustic_multiplicative_temporal_ownership.py": "d28706b678b7a7e19328de69d2105d51d7de6d161b647b1fd6dfb599b804690f",
     "src/model_exp/corpus.py": "bc8fc14129ea33576d8e4d085b3bfa0b79e0ad57fbc33012a130047a17572f31",

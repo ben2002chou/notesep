@@ -3,5 +3,4 @@ stage: notegrab
 data:
   root: ???
   initialization: ???
-training:
-  canary_steps: null
+training: {}

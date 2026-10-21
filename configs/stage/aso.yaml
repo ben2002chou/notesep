@@ -6,7 +6,5 @@ data:
   recorded_root: ???
   proposal_root: ???
 training:
-  mode: full
-  deterministic: true
   seed: 20260909
   proposal_validation_sha256: 7070a58fb977c14eb8fd1139cf300f848d39373bb460c74db49afe9e0c64cb82

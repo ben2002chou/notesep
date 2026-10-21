@@ -11,22 +11,10 @@ import validate_notegrab as components
 
 
 def apply_data_root(options):
-    if options.data_root is None:
-        return
-    if any(
-        value is not None
-        for value in (
-            options.path_map,
-            options.packed_metadata_archive,
-            options.packed_metadata_manifest,
-            options.packed_metadata_manifest_sha256,
-        )
-    ):
-        raise ValueError("Use --data-root or explicit data paths, not both")
     root = options.data_root.expanduser().resolve()
     manifest = json.loads((root / "manifest.json").read_text())
     if manifest.get("component") != "original_notegrab_training_inputs":
-        raise ValueError("--data-root needs the original NoteGrab dataset")
+        raise ValueError("--data-root needs the NoteGrab training package")
     paths = {row["path"]: row for row in manifest["files"]}
     name = "packed-metadata-overlay/manifest.json"
     options.path_map = root / "path-map.json"
@@ -42,14 +30,6 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--initialize-checkpoint", type=Path, required=True)
     parser.add_argument(
-        "--canary-steps",
-        type=int,
-        help=(
-            "Explicit diagnostic stop override; omitted means original "
-            "5000-step recipe"
-        ),
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         help=(
@@ -57,39 +37,21 @@ def main():
             "without training"
         ),
     )
-    parser.add_argument("--packed-metadata-archive", type=Path)
-    parser.add_argument("--packed-metadata-manifest", type=Path)
-    parser.add_argument("--packed-metadata-manifest-sha256")
     parser.add_argument(
         "--data-root",
         type=Path,
-        help="Verified NoteGrab download from notesep download-data",
-    )
-    parser.add_argument(
-        "--path-map",
-        type=Path,
-        help="JSON mapping of historical data roots to local directories",
+        required=True,
+        help="NoteGrab training package",
     )
     options = parser.parse_args()
     apply_data_root(options)
-    if options.output.exists() or (
-        options.canary_steps is not None
-        and not 1 <= options.canary_steps <= 5000
-    ):
-        raise ValueError(
-            "New output and positive bounded canary steps required"
-        )
-    packed = [
+    if options.output.exists():
+        raise FileExistsError(options.output)
+    packed = (
         options.packed_metadata_archive,
         options.packed_metadata_manifest,
         options.packed_metadata_manifest_sha256,
-    ]
-    if any(value is not None for value in packed) and not all(
-        value is not None for value in packed
-    ):
-        raise ValueError(
-            "All packed metadata overlay arguments required together"
-        )
+    )
     options.output.mkdir(parents=True)
     sys.path.insert(0, str(components.ROOT / "src"))
     from notesep.training_paths import configure, relocated
@@ -117,8 +79,7 @@ def main():
         "--output",
         str(options.output / "components.json"),
     ]
-    if options.path_map is not None:
-        sys.argv += ["--path-map", str(options.path_map)]
+    sys.argv += ["--path-map", str(options.path_map)]
     components.main()
     import parent_balanced_training as entry
 
@@ -132,8 +93,6 @@ def main():
         "wandb_mode": "disabled",
         "wandb_name": "notesep-declared-reconstructed-continuation",
     }
-    if options.canary_steps is not None:
-        overrides["max_steps"] = options.canary_steps
     arguments.update(overrides)
     for key in (
         "acoustic_offset_index",

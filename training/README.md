@@ -12,8 +12,7 @@ are supplied separately.
 | `stage_metadata.py` | Installs packed metadata while reading the audio shards in place. |
 | `download_initial_checkpoint.py` | Downloads and verifies the NoteGrab starting checkpoint. |
 | `train_aso.py` | Validates ASO inputs and launches its training recipe. |
-| `run_aso_deterministic.py` | Applies and records deterministic runtime settings for ASO. |
-| `fixed_order_scan.py` | Overrides the note-axis cumulative sum used by ASO during deterministic runs. |
+| `run_aso_training.py` | Applies and records deterministic runtime settings for ASO. |
 | `aso/` | ASO model, data, and training implementation. |
 | `notegrab/` | NoteGrab recipe, models, data, and saved training settings. |
 

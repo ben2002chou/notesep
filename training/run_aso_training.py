@@ -1,14 +1,76 @@
-"""Apply an explicit, resume-bound deterministic policy to the unchanged trainer."""
+"""Run ASO with the fixed numerical settings used by the paper recipe."""
 
 import argparse
 import hashlib
 import importlib.metadata
 import json
 import os
-from pathlib import Path
 import runpy
 import subprocess
 import sys
+from contextlib import contextmanager
+from pathlib import Path
+
+
+def note_axis_scan_policy(torch):
+    """Use fixed-order accumulation for the ASO note-axis cumulative sum."""
+
+    def ordered_scan(values, dim, reverse=False):
+        if values.shape[dim] == 0:
+            return values.clone()
+        columns = values.unbind(dim)
+        accumulator = torch.zeros_like(columns[0])
+        results = []
+        for column in reversed(columns) if reverse else columns:
+            accumulator = accumulator + column
+            results.append(accumulator)
+        if reverse:
+            results.reverse()
+        return torch.stack(results, dim=dim)
+
+    class FixedOrderScan(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, values, dim):
+            ctx.dim = dim
+            return ordered_scan(values, dim)
+
+        @staticmethod
+        def backward(ctx, gradient):
+            return ordered_scan(gradient, ctx.dim, reverse=True), None
+
+    @contextmanager
+    def apply_policy():
+        original = torch.Tensor.cumsum
+
+        def scoped(values, dim, *, dtype=None):
+            eligible = (
+                values.is_cuda
+                and values.dtype == torch.float32
+                and values.ndim == 4
+                and dim in (1, -3)
+                and values.shape[1] > 0
+                and values.numel() != values.shape[1]
+                and dtype in (None, torch.float32)
+            )
+            if eligible:
+                if (
+                    not torch.are_deterministic_algorithms_enabled()
+                    or torch.is_deterministic_algorithms_warn_only_enabled()
+                ):
+                    raise RuntimeError(
+                        "Fixed note-axis scan requires strict "
+                        "deterministic mode"
+                    )
+                return FixedOrderScan.apply(values, 1)
+            return original(values, dim, dtype=dtype)
+
+        torch.Tensor.cumsum = scoped
+        try:
+            yield
+        finally:
+            torch.Tensor.cumsum = original
+
+    return apply_policy()
 
 
 def bind_policy(path, policy):
@@ -23,7 +85,8 @@ def bind_policy(path, policy):
         (path.parent / name).exists() for name in ("CONTRACT.json", "RESUME.pt")
     ):
         raise ValueError(
-            "Existing training output has no deterministic policy; use a new output directory"
+            "Existing output has no matching deterministic policy. "
+            "Choose a new output directory."
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("x") as stream:
@@ -45,7 +108,8 @@ def bind_training_policy(path, policy):
         (path.parent / name).exists() for name in ("CONTRACT.json", "RESUME.pt")
     ):
         raise ValueError(
-            "Existing training output has no deterministic policy; use a new output directory"
+            "Existing output has no matching deterministic policy. "
+            "Choose a new output directory."
         )
     bind_policy(sidecar, policy)
     return sidecar
@@ -88,11 +152,6 @@ def parse_runtime_arguments(argv=None):
     parser.add_argument("--entry", type=Path, required=True)
     parser.add_argument("--expected-entry-sha256", required=True)
     parser.add_argument("--output-policy", type=Path, required=True)
-    parser.add_argument(
-        "--check-runtime-only",
-        action="store_true",
-        help="Bind/check runtime metadata without executing any training",
-    )
     return parser.parse_known_args(argv)
 
 
@@ -116,9 +175,6 @@ def main():
     torch.backends.cudnn.benchmark = False
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
-    from fixed_order_scan import note_axis_scan_policy
-
-    scan_source = Path(__file__).with_name("fixed_order_scan.py")
     drivers = (
         subprocess.check_output(
             [
@@ -150,10 +206,9 @@ def main():
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
         "torch_git_version": torch.version.git_version,
-        "note_axis_scan": "fixed_order_float32_forward_and_reverse_derivative_v1",
-        "note_axis_scan_sha256": hashlib.sha256(
-            scan_source.read_bytes()
-        ).hexdigest(),
+        "note_axis_scan": (
+            "fixed_order_float32_forward_and_reverse_derivative_v1"
+        ),
         "cudnn_version": torch.backends.cudnn.version(),
         "gpu": torch.cuda.get_device_name(0),
         "compute_capability": list(torch.cuda.get_device_capability(0)),
@@ -169,20 +224,7 @@ def main():
         "cudnn_allow_tf32": False,
         "cublas_workspace_config": ":4096:8",
     }
-    if args.check_runtime_only:
-        bound = bind_training_policy(args.output_policy, policy)
-        print(
-            json.dumps(
-                {
-                    "status": "runtime_policy_checked",
-                    "policy": policy,
-                    "policy_path": str(bound),
-                }
-            ),
-            flush=True,
-        )
-        return
-    with note_axis_scan_policy():
+    with note_axis_scan_policy(torch):
         run_bound_entry(entry, remaining, args.output_policy, policy)
 
 

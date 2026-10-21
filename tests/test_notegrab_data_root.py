@@ -4,8 +4,6 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "training"))
 from train_notegrab import apply_data_root
 from validate_notegrab import TRAINING_CONTRACT_SHA
@@ -45,13 +43,6 @@ def test_data_root_resolves_verified_download(tmp_path):
         == root / "packed-metadata-overlay/payload.zip"
     )
     assert configured.packed_metadata_manifest_sha256 == "a" * 64
-
-
-def test_data_root_rejects_mixed_explicit_paths(tmp_path):
-    configured = options(tmp_path)
-    configured.path_map = tmp_path / "paths.json"
-    with pytest.raises(ValueError, match="not both"):
-        apply_data_root(configured)
 
 
 def test_notegrab_contract_uses_portable_paths():

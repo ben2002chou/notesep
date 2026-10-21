@@ -41,13 +41,11 @@ def main(cfg: DictConfig) -> None:
             "--data-root",
             required_path(cfg.data.root, "data.root"),
         ]
-        if cfg.training.canary_steps is not None:
-            command += ["--canary-steps", str(cfg.training.canary_steps)]
     elif cfg.stage == "aso":
         settings = {
             "schema": "notesep_aso_training_config_v1",
             "arm": "acoustic_multiplicative",
-            "mode": cfg.training.mode,
+            "mode": "full",
             "seed": int(cfg.training.seed),
             "fresh_index": required_path(
                 cfg.data.fresh_index, "data.fresh_index"
@@ -73,8 +71,6 @@ def main(cfg: DictConfig) -> None:
             str(ROOT / "training/train_aso.py"),
             "--config",
             str(config_path),
-            "--mode",
-            cfg.training.mode,
             "--output",
             run,
         ]
@@ -83,8 +79,6 @@ def main(cfg: DictConfig) -> None:
                 "--path-map",
                 required_path(cfg.data.path_map, "data.path_map"),
             ]
-        if cfg.training.deterministic:
-            command.append("--deterministic")
     else:
         raise ValueError(f"Unknown training stage: {cfg.stage}")
     if cfg.run.dry_run:
