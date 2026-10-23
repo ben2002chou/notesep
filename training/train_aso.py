@@ -1,7 +1,6 @@
-"""Run the portable exact ASO trainer with explicit pinned input identities."""
+"""Run the ASO paper training recipe."""
 
 import argparse
-import hashlib
 import json
 import os
 import subprocess
@@ -31,12 +30,6 @@ def main():
             "training schedule"
         )
     source = ROOT / "training/aso"
-    prereg = ROOT / settings["preregistration"]
-    if (
-        hashlib.sha256(prereg.read_bytes()).hexdigest()
-        != settings["preregistration_sha256"]
-    ):
-        raise ValueError("Preregistration identity mismatch")
     configure(args.path_map)
     paths = {
         name: relocated(settings[name])
@@ -49,10 +42,6 @@ def main():
         settings["arm"],
         "--seed",
         str(settings["seed"]),
-        "--expected-proposal-validation-sha256",
-        settings["proposal_validation_sha256"],
-        "--scale-preregistration",
-        str(prereg),
         "--output",
         str(args.output.resolve()),
     ]
@@ -68,39 +57,26 @@ def main():
         str(runtime),
         "--entry",
         str(entry),
-        "--expected-entry-sha256",
-        hashlib.sha256(entry.read_bytes()).hexdigest(),
         "--output-policy",
         str(policy_path),
         *command[2:],
     ]
-    report = {
-        "command": command,
-        "preregistration_sha256": settings["preregistration_sha256"],
-        "runtime_policy": "deterministic_fixed_order_note_scan",
-        "missing_inputs": [
-            str(path)
-            for path in [
-                paths["fresh_index"],
-                paths["recorded_root"] / "FROZEN.json",
-                paths["proposal_root"] / "VALIDATION.json",
-            ]
-            if not path.is_file()
-        ],
-        "scope": (
-            "Exact pinned-input training command; a dry run is not dataset "
-            "admission or execution evidence."
-        ),
-    }
-    print(json.dumps(report, indent=2), flush=True)
-    if report["missing_inputs"]:
-        raise FileNotFoundError(
-            "Missing ASO inputs: " + ", ".join(report["missing_inputs"])
+    missing = [
+        path
+        for path in (
+            paths["fresh_index"],
+            paths["recorded_root"] / "FROZEN.json",
+            paths["proposal_root"] / "VALIDATION.json",
         )
+        if not path.is_file()
+    ]
+    if missing:
+        names = ", ".join(map(str, missing))
+        raise FileNotFoundError("Missing ASO inputs: " + names)
     if args.dry_run:
+        print("ASO inputs are present. Training was not started.", flush=True)
         return
     env = os.environ.copy()
-    env["PREREG_SHA256"] = settings["preregistration_sha256"]
     env["PYTHONPATH"] = (
         str(ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")
     )

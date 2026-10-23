@@ -1,10 +1,11 @@
-"""Download the pinned NoteGrab step-250 starting checkpoint."""
-from pathlib import Path
+"""Download NoteGrab's step-250 training checkpoint."""
+
 import argparse
 import hashlib
 import json
 import shutil
 import tempfile
+from pathlib import Path
 from huggingface_hub import hf_hub_download
 
 REPOSITORY = 'ben2002chou/notesep-release-candidate'
@@ -31,18 +32,35 @@ def download(output, cache_dir=None):
         staged = Path(temp) / 'checkpoint'
         staged.mkdir()
         for name, (checksum, size) in FILES.items():
-            source = Path(hf_hub_download(REPOSITORY, 'training-lineage/' + name,
-                                         revision=REVISION, cache_dir=cache_dir))
+            source = Path(
+                hf_hub_download(
+                    REPOSITORY,
+                    'training-lineage/' + name,
+                    revision=REVISION,
+                    cache_dir=cache_dir,
+                )
+            )
             if source.stat().st_size != size or sha(source) != checksum:
-                raise ValueError('Original training checkpoint identity differs: ' + name)
+                raise ValueError(
+                    'Training checkpoint does not match the release: ' + name
+                )
             (staged / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, staged / name)
             if sha(staged / name) != checksum:
-                raise ValueError('Materialized training checkpoint differs: ' + name)
-        receipt = {'status': 'passed', 'family': 'paper-table1-notegrab-step-250-initialization', 'repository': REPOSITORY, 'revision': REVISION,
-            'files_sha256': {name: value[0] for name, value in FILES.items()},
-            'scope': 'Exact model-only step-250 training initialization used by the released NoteGrab recipe.'}
-        (staged / 'DOWNLOAD.json').write_text(json.dumps(receipt, indent=2) + '\n')
+                raise ValueError(
+                    'Downloaded checkpoint changed while copying: ' + name
+                )
+        receipt = {
+            'repository': REPOSITORY,
+            'revision': REVISION,
+            'files': {
+                name: {'sha256': checksum, 'size_bytes': size}
+                for name, (checksum, size) in FILES.items()
+            },
+        }
+        (staged / 'DOWNLOAD.json').write_text(
+            json.dumps(receipt, indent=2) + '\n'
+        )
         if output.exists():
             raise FileExistsError(output)
         staged.rename(output)

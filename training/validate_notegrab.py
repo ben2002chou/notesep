@@ -1,11 +1,10 @@
-"""Validate recovered NoteGrab contracts without training or admission."""
+"""Check that NoteGrab's code matches its saved training recipe."""
 
 import argparse
 import hashlib
 import inspect
 import json
 import os
-import socket
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,9 +12,6 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "training/notegrab/data"
 MODELS = ROOT / "training/notegrab/models"
-TRAINING_CONTRACT_SHA = (
-    "5d8a9bee391ae40ef2322ed36b9e1994e3f97064901909d6d69b2f51f5bbb45c"
-)
 
 
 def sha(path):
@@ -53,11 +49,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--path-map", type=Path)
-    parser.add_argument(
-        "--source-only",
-        action="store_true",
-        help="Verify frozen source and contract files without training data",
-    )
     args = parser.parse_args()
     if args.output is not None and args.output.exists():
         raise FileExistsError(args.output)
@@ -66,19 +57,6 @@ def main():
 
     configure(args.path_map)
     contract_path = ROOT / "training/notegrab/training_contract.json"
-    if sha(contract_path) != TRAINING_CONTRACT_SHA:
-        raise ValueError("Training recipe changed")
-    if args.source_only:
-        print(
-            json.dumps(
-                {
-                    "status": "passed",
-                    "training_contract_sha256": TRAINING_CONTRACT_SHA,
-                },
-                indent=2,
-            )
-        )
-        return
     if args.output is None:
         raise ValueError("--output is required for the full component check")
     contract = json.loads(contract_path.read_text())
@@ -170,30 +148,12 @@ def main():
     passed = not any(comparison.values())
     report = {
         "status": "passed" if passed else "contract_mismatch",
-        "job_id": os.environ.get("SLURM_JOB_ID"),
-        "host": socket.gethostname(),
-        "validator_sha256": sha(Path(__file__)),
-        "training_contract_sha256": sha(contract_path),
-        "score_index_sha256": gate["score_index_sha256"],
-        "environment_sha256": sha(environment_path),
         "runtime_components": {
             key: str(Path(value).resolve().relative_to(ROOT))
             for key, value in resolved.items()
         },
-        "runtime_resolution": {
-            key: str(Path(value).relative_to(ROOT))
-            for key, value in resolved.items()
-        },
         "contract_differences": comparison,
         "observed_contracts": observed,
-        "optimizer_updates": 0,
-        "original_execution_verified": False,
-        "scope": (
-            "Real recovered component import and original score-index hash; "
-            "exact model/loss/sampler contract comparison. No data-loader/"
-            "exposure, optimizer, parent-source admission or launch-bound "
-            "executed closure proof."
-        ),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

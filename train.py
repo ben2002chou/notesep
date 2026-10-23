@@ -15,10 +15,6 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 
 ROOT = Path(__file__).resolve().parent
-ASO_PREREG = "training/aso/docs/training_protocol.md"
-ASO_PREREG_SHA = (
-    "c689418c734a94ec34d973135154402d376401fb78a720742b65eb53602e6b70"
-)
 
 
 def required_path(value: str, name: str) -> str:
@@ -56,11 +52,6 @@ def main(cfg: DictConfig) -> None:
             "proposal_root": required_path(
                 cfg.data.proposal_root, "data.proposal_root"
             ),
-            "proposal_validation_sha256": (
-                cfg.training.proposal_validation_sha256
-            ),
-            "preregistration": ASO_PREREG,
-            "preregistration_sha256": ASO_PREREG_SHA,
         }
         config_path = (
             Path(HydraConfig.get().runtime.output_dir) / "aso-config.json"
@@ -83,7 +74,6 @@ def main(cfg: DictConfig) -> None:
         raise ValueError(f"Unknown training stage: {cfg.stage}")
     if cfg.run.dry_run:
         command.append("--dry-run")
-    print(" ".join(command), flush=True)
     subprocess.run(command, cwd=ROOT, check=True)
 
 

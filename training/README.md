@@ -42,18 +42,17 @@ uv run python train.py stage=notegrab run.dir=outputs/notegrab \
 ## Run ASO
 
 ASO trains from scratch. It needs a fresh index, recorded data, proposal data,
-and the proposal validation hash:
+and the proposal cache from the validated training package:
 
 ```sh
 uv run python train.py stage=aso run.dir=outputs/aso \
   data.fresh_index=/path/to/fresh-index.json \
   data.recorded_root=/path/to/recorded-data \
-  data.proposal_root=/path/to/proposal-data \
-  training.proposal_validation_sha256=<validated-sha256>
+  data.proposal_root=/path/to/proposal-data
 ```
 
-Use `uv run python train.py --cfg job` to inspect the selected settings. Each
-input must match its expected manifest and hashes.
+Use `uv run python train.py --cfg job` to inspect the selected settings. Data
+files are checked against the manifests in the package.
 
 ## Files
 

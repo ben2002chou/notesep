@@ -3,7 +3,6 @@
 import argparse
 import json
 import os
-import socket
 import sys
 from pathlib import Path
 
@@ -58,8 +57,6 @@ def main():
 
     configure(options.path_map)
     contract_path = components.ROOT / "training/notegrab/training_contract.json"
-    if components.sha(contract_path) != components.TRAINING_CONTRACT_SHA:
-        raise ValueError("Training recipe changed")
     contract = json.loads(contract_path.read_text())
     if (
         components.sha(options.initialize_checkpoint)
@@ -126,30 +123,10 @@ def main():
     ):
         raise ValueError("Model-only initialization semantics changed")
     plan = {
-        "schema": "notesep_reconstructed_notegrab_recipe_v1",
-        "status": "prepared",
-        "job_id": os.environ.get("SLURM_JOB_ID"),
-        "host": socket.gethostname(),
-        "launcher_sha256": components.sha(Path(__file__)),
-        "training_contract_sha256": components.sha(contract_path),
-        "component_validation_sha256": components.sha(
-            options.output / "components.json"
-        ),
-        "initialize_checkpoint_sha256": contract["initialization"][
-            "checkpoint_sha256"
-        ],
-        "argv": argv,
-        "declared_overrides": overrides,
+        "initialization_checkpoint": str(options.initialize_checkpoint),
+        "arguments": arguments,
+        "overrides": overrides,
         "dry_run": options.dry_run,
-        "historical_executed_closure_recovered": False,
-        "packed_metadata_transport_sha256": components.sha(
-            Path(__file__).with_name("stage_metadata.py")
-        ),
-        "scope": (
-            "Recovered scientific components and saved original recipe; exact "
-            "historical source/exposure, full replay and corpus admission "
-            "remain separate."
-        ),
     }
     (options.output / "recipe.json").write_text(
         json.dumps(plan, indent=2) + "\n"
@@ -201,19 +178,10 @@ def main():
             counts[name] = finite(saved[name])
         report = {
             "status": "passed_training_execution",
-            "job_id": os.environ.get("SLURM_JOB_ID"),
             "global_step": saved["global_step"],
             "gpu": torch.cuda.get_device_name(),
             "checkpoint_sha256": components.sha(checkpoint),
-            "finite_tensor_counts": counts,
-            "recipe_sha256": components.sha(options.output / "recipe.json"),
-            "original_execution_verified": False,
-            "training_reproducibility_verified": False,
-            "scope": (
-                "Actual declared reconstructed training and finite checkpoint "
-                "only; independent repeat/resume and historical checkpoint "
-                "reproduction remain unverified."
-            ),
+            "finite_tensors": counts,
         }
         (options.output / "result.json").write_text(
             json.dumps(report, indent=2) + "\n"

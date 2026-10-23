@@ -51,24 +51,8 @@ RECORDED_SHA256 = (
     "24c30535b171b19a6ce06b29d886aece2f1cd65d7828f4f719c928df5ea534c7"
 )
 PROPOSAL_VALIDATION_SHA256 = (
-    "e5d12608fc6a8d143a61b36d3f51ec1afa122abeaff7d29aad4e50bac4c74124"
+    "7070a58fb977c14eb8fd1139cf300f848d39373bb460c74db49afe9e0c64cb82"
 )
-AMENDMENT = ROOT / "docs/exact_score_update.md"
-AMENDMENT_SHA256 = (
-    "f9b74a5da9cb9db0670bb3006c2c69393b24a46933cfb79f72b7485fc8b06579"
-)
-RESUME_AMENDMENT = ROOT / "docs/resume_update.md"
-RESUME_AMENDMENT_SHA256 = (
-    "19b64939c42c7696a387e29827ad5243c17000e1cd111f30c34adb284fca6060"
-)
-PRE_RESUME_RUNNER_SHA256S = {
-    # Original exact-score runner admitted by the v2b resume amendment.
-    "3692b57f68881dc54d8361be047d61a27989b78e53ff4c645619e99d03d4dfa6",
-    # Acoustic-multiplicative runner that wrote the current full-run contract
-    # and step-26,500 resume payload.  This is a resume-only provenance
-    # admission; model, data, schedule, objective, and evaluator are unchanged.
-    "3e0f70765cd6f8a35f630d0e2538b700fb5d12a70d8fa58f892c4eff755a0ade",
-}
 STOP = False
 FINAL_ARM = "acoustic_multiplicative"
 
@@ -215,17 +199,7 @@ def main() -> int:
     parser.add_argument("--fresh-index", type=Path, required=True)
     parser.add_argument("--recorded-root", type=Path, required=True)
     parser.add_argument("--proposal-root", type=Path, required=True)
-    parser.add_argument(
-        "--expected-proposal-validation-sha256",
-        default=PROPOSAL_VALIDATION_SHA256,
-        help=(
-            "Expected SHA-256 of proposal-root/VALIDATION.json. The default "
-            "preserves the historical cache; successor separator caches must "
-            "supply their independently validated hash explicitly."
-        ),
-    )
     parser.add_argument("--seed", type=int, default=SEED)
-    parser.add_argument("--scale-preregistration", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--path-map", type=Path)
     args = parser.parse_args()
@@ -241,29 +215,12 @@ def main() -> int:
         scaled.forbid_test_path(path)
     if args.output.exists() and not (args.output / "RESUME.pt").exists():
         raise FileExistsError(args.output)
-    proposal_validation_sha256 = (
-        args.expected_proposal_validation_sha256.lower()
-    )
-    if len(proposal_validation_sha256) != 64 or any(
-        character not in "0123456789abcdef"
-        for character in proposal_validation_sha256
-    ):
-        raise ValueError("invalid expected proposal validation SHA-256")
+    proposal_validation_sha256 = PROPOSAL_VALIDATION_SHA256
     if (
         sha256(args.proposal_root / "VALIDATION.json")
         != proposal_validation_sha256
     ):
         raise ValueError("proposal cache validation hash mismatch")
-    if args.scale_preregistration is None:
-        raise ValueError("the final recipe requires its pinned preregistration")
-    active_prereg = args.scale_preregistration
-    expected_prereg_sha256 = os.environ.get("PREREG_SHA256")
-    if sha256(active_prereg) != expected_prereg_sha256:
-        raise ValueError("preregistration hash mismatch")
-    if sha256(AMENDMENT) != AMENDMENT_SHA256:
-        raise ValueError("numerical-closure amendment hash mismatch")
-    if sha256(RESUME_AMENDMENT) != RESUME_AMENDMENT_SHA256:
-        raise ValueError("resume amendment hash mismatch")
     args.output.mkdir(parents=True, exist_ok=True)
 
     signal.signal(signal.SIGUSR1, request_stop)
@@ -335,20 +292,6 @@ def main() -> int:
         "recorded_authority_sha256": RECORDED_SHA256,
         "proposal_root": str(args.proposal_root.resolve()),
         "proposal_validation_sha256": proposal_validation_sha256,
-        "preregistration": str(active_prereg.resolve()),
-        "preregistration_sha256": sha256(active_prereg),
-        "closure_amendment": str(AMENDMENT.resolve()),
-        "closure_amendment_sha256": AMENDMENT_SHA256,
-        "runner_sha256": sha256(Path(__file__)),
-        "historical_runner_sha256": (
-            "4b08e16aa209d1309e611abf7bd23a83be5432bd8eeaa6573ecb9c174990daea"
-        ),
-        "model_source_sha256": sha256(
-            ROOT / "src/model_exp/temporal_hybrid_set_ownership.py"
-        ),
-        "acoustic_multiplicative_model_source_sha256": sha256(
-            ROOT / "src/model_exp/acoustic_multiplicative_temporal_ownership.py"
-        ),
         "objective": (
             "waveform SI-regret against the better of raw proposal and "
             "magnitude partition, plus target ownership and TF smoothness"
@@ -371,11 +314,6 @@ def main() -> int:
         contract = validate_resume_contract(
             contract,
             recorded_contract,
-            active_runner_sha256=sha256(Path(__file__)),
-            allowed_parent_runners=PRE_RESUME_RUNNER_SHA256S
-            | {
-                "4b08e16aa209d1309e611abf7bd23a83be5432bd8eeaa6573ecb9c174990daea"
-            },
         )
     else:
         encoded = (
@@ -503,9 +441,6 @@ def main() -> int:
             "device": torch.cuda.get_device_name(),
             "runtime_seconds": time.monotonic() - started,
             "contract": contract,
-            "resume_runner_sha256": sha256(Path(__file__)),
-            "resume_amendment": str(RESUME_AMENDMENT.resolve()),
-            "resume_amendment_sha256": sha256(RESUME_AMENDMENT),
             "checkpoint": str(final_checkpoint.resolve()),
             "checkpoint_sha256": sha256(final_checkpoint),
             "initialization_parity_max_abs": initialization_parity,

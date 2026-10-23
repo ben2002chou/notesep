@@ -99,14 +99,13 @@ uv run python train.py stage=notegrab run.dir=outputs/notegrab \
 ```
 
 ASO trains from scratch and needs a fresh index, recorded data, proposal data,
-and the proposal validation hash:
+and the proposal cache from the validated training package:
 
 ```sh
 uv run python train.py stage=aso run.dir=outputs/aso \
   data.fresh_index=/path/to/fresh-index.json \
   data.recorded_root=/path/to/recorded-data \
-  data.proposal_root=/path/to/proposal-data \
-  training.proposal_validation_sha256=<validated-sha256>
+  data.proposal_root=/path/to/proposal-data
 ```
 
 The [training guide](training/README.md) explains how the data inputs are
@@ -128,7 +127,6 @@ checked and how to download a dataset package.
 | `THIRD_PARTY_NOTICES.md` | Licenses and notices for included third-party code |
 | `CITATION.cff` | Citation metadata for the paper and software |
 | `LICENSE` | License for this repository |
-| `LICENSING.md` | Licensing notes for the repository and bundled assets |
 | `.gitignore` | Excludes local environments, caches, and generated files from Git |
 
 </details>

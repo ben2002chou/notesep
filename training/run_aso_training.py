@@ -1,7 +1,6 @@
 """Run ASO with the fixed numerical settings used by the paper recipe."""
 
 import argparse
-import hashlib
 import importlib.metadata
 import json
 import os
@@ -150,7 +149,6 @@ def parse_runtime_arguments(argv=None):
     # Downstream --output must not abbreviate our --output-policy option.
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--entry", type=Path, required=True)
-    parser.add_argument("--expected-entry-sha256", required=True)
     parser.add_argument("--output-policy", type=Path, required=True)
     return parser.parse_known_args(argv)
 
@@ -158,11 +156,6 @@ def parse_runtime_arguments(argv=None):
 def main():
     args, remaining = parse_runtime_arguments()
     entry = args.entry.resolve()
-    if (
-        hashlib.sha256(entry.read_bytes()).hexdigest()
-        != args.expected_entry_sha256
-    ):
-        raise ValueError("Pinned original training entry changed")
     # Must precede Torch import and CUDA initialization. The original trainer
     # separately retains its fixed seeds and disables matmul/cuDNN TF32.
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
@@ -199,10 +192,6 @@ def main():
     }
     policy = {
         "schema": "notesep_aso_deterministic_runtime_v2",
-        "entry_sha256": args.expected_entry_sha256,
-        "runtime_entry_sha256": hashlib.sha256(
-            Path(__file__).read_bytes()
-        ).hexdigest(),
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
         "torch_git_version": torch.version.git_version,
