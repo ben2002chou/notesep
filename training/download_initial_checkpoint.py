@@ -1,4 +1,4 @@
-"""Download the pinned original NoteGrab training parents with full-file checks."""
+"""Download the pinned NoteGrab step-250 starting checkpoint."""
 from pathlib import Path
 import argparse
 import hashlib

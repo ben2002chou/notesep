@@ -2,7 +2,7 @@
 
 NoteSep separates a music recording into individual notes when you give it an aligned score. You can correct the score against the audio, listen to each separated note, then retune, move, mute, or export the notes as audio tracks.
 
-[Paper](https://arxiv.org/abs/2609.29071) · [Checkpoints](https://huggingface.co/ben2002chou/notesep) · [Listen to examples](https://benschou.com/notesep/)
+[Paper](https://arxiv.org/abs/2609.29071) · [Inference checkpoints](https://huggingface.co/ben2002chou/notesep) · [Listen to examples](https://benschou.com/notesep/)
 
 This repository includes the Python API, command-line tool, local piano-roll editor, and our score-informed NMF baseline. The example below runs without a neural checkpoint.
 
@@ -23,14 +23,23 @@ notesep render example-notes/project.json --output edited.wav
 
 `example-notes/` contains one WAV per note, their sum, and a project you can reopen. `edited.wav` matches the sum until you make an edit.
 
-## Edit your own music
+## Checkpoints
 
-To run the neural model locally, install the editor and download the [paper checkpoint pair](https://huggingface.co/ben2002chou/notesep):
+Studio and command-line inference use the released separator and ASO checkpoint
+pair. Install the Studio dependencies, then download the pair and check its
+file hashes:
 
 ```sh
 python -m pip install -e ".[studio]"
 notesep download
 notesep verify
+```
+
+## Inference
+
+Start the editor:
+
+```sh
 notesep studio
 ```
 
@@ -70,12 +79,42 @@ Each project contains aligned 16 kHz mono WAVs (`note-0000-midi-<pitch>.wav`, et
 
 </details>
 
-<details>
-<summary>Training and repository map</summary>
+## Training
 
-Paper training uses separate datasets and initialization checkpoints. The
-training guide shows how to download a dataset snapshot and run each recipe:
-[`training/README.md`](training/README.md).
+The paper has two training recipes: NoteGrab and ASO. Install the training
+dependencies and download the NoteGrab starting checkpoint:
+
+```sh
+python -m pip install -e ".[train]"
+python training/download_initial_checkpoint.py --output checkpoints
+```
+
+NoteGrab starts from `checkpoints/0441537c.pt`, the model checkpoint saved at
+training step 250. This is separate from the released inference checkpoint
+pair above. Then launch NoteGrab with the prepared data package:
+
+```sh
+python train.py stage=notegrab run.dir=outputs/notegrab \
+  data.root=/path/to/notegrab-data \
+  data.initialization=checkpoints/0441537c.pt
+```
+
+ASO trains from scratch and needs a fresh index, recorded data, proposal data,
+and the proposal validation hash:
+
+```sh
+python train.py stage=aso run.dir=outputs/aso \
+  data.fresh_index=/path/to/fresh-index.json \
+  data.recorded_root=/path/to/recorded-data \
+  data.proposal_root=/path/to/proposal-data \
+  training.proposal_validation_sha256=<validated-sha256>
+```
+
+The [training guide](training/README.md) explains how the data inputs are
+checked and how to download a dataset package.
+
+<details>
+<summary>Repository layout</summary>
 
 ## Repository layout
 
