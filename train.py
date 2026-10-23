@@ -43,9 +43,7 @@ def main(cfg: DictConfig) -> None:
             "arm": "acoustic_multiplicative",
             "mode": "full",
             "seed": int(cfg.training.seed),
-            "fresh_index": required_path(
-                cfg.data.fresh_index, "data.fresh_index"
-            ),
+            "fresh_index": required_path(cfg.data.fresh_index, "data.fresh_index"),
             "recorded_root": required_path(
                 cfg.data.recorded_root, "data.recorded_root"
             ),
@@ -53,9 +51,7 @@ def main(cfg: DictConfig) -> None:
                 cfg.data.proposal_root, "data.proposal_root"
             ),
         }
-        config_path = (
-            Path(HydraConfig.get().runtime.output_dir) / "aso-config.json"
-        )
+        config_path = Path(HydraConfig.get().runtime.output_dir) / "aso-config.json"
         config_path.write_text(json.dumps(settings, indent=2) + "\n")
         command = [
             sys.executable,

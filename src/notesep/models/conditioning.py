@@ -11,7 +11,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint
 
-from .dna_residual_tfc_tdf_unet import (
+from .unet import (
     DNAResidualTFCTDFUNet,
     DNAResidualTFCTDFUNetConfig,
     dna_residual_tfc_tdf_unet_config,

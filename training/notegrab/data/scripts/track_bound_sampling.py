@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""SCNS v3 data adapter: track-bound score scenes with neutral library sampling.
-
-The separation model, losses, score conditioning, optimizer, and scheduler are
-the frozen selective symmetric implementation.  This overlay only changes the
-recorded-data selection contract: recorded rows replace ordinary rows within a
-normal mixed batch, and an eligible source *library* is selected before a
-physical sound identity.  It therefore does not make a recorded-only phase or
-turn weak classes into a replay curriculum.
-"""
+"""Sample a source library, then a sound identity within that library."""
 
 from __future__ import annotations
 

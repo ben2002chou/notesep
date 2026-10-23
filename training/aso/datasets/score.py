@@ -13,7 +13,7 @@ from typing import Any, Callable
 import numpy as np
 import torch
 
-from .streaming_dataset import V13StreamingResidualDataset
+from .streaming import V13StreamingResidualDataset
 
 
 class FullScoreLookup:
@@ -34,9 +34,7 @@ class FullScoreLookup:
                 f"file:{self.path}?mode=ro&immutable=1", uri=True
             )
             self._pid = os.getpid()
-            metadata = dict(
-                self._connection.execute("SELECT key, value FROM metadata")
-            )
+            metadata = dict(self._connection.execute("SELECT key, value FROM metadata"))
             if metadata.get("schema") != "tfc_score_condition_index_v1":
                 raise ValueError("Full-score index has the wrong schema")
         assert self._connection is not None
@@ -90,16 +88,12 @@ class AcousticExtensionLookup:
             self.velocity = payload["velocity"].astype(np.float32)
             self.duration = payload["duration_samples"].astype(np.float32)
             self.release = payload["release_samples"].astype(np.float32)
-            self.scale = payload["sound_robust_scale_samples"].astype(
+            self.scale = payload["sound_robust_scale_samples"].astype(np.float32)
+            family_names = [str(value) for value in payload["family_names"]]
+            family_stats = payload["family_stats_mean_std_p01_median_p99"].astype(
                 np.float32
             )
-            family_names = [str(value) for value in payload["family_names"]]
-            family_stats = payload[
-                "family_stats_mean_std_p01_median_p99"
-            ].astype(np.float32)
-        self.sound_index = {
-            value: index for index, value in enumerate(self.sound_ids)
-        }
+        self.sound_index = {value: index for index, value in enumerate(self.sound_ids)}
         self.family_stats = dict(zip(family_names, family_stats, strict=True))
 
     def estimate(
@@ -120,10 +114,7 @@ class AcousticExtensionLookup:
             ((self.pitch[begin:end] - pitch) / 12.0) ** 2
             + ((self.velocity[begin:end] - velocity) / 32.0) ** 2
             + (
-                (
-                    np.log1p(self.duration[begin:end])
-                    - np.log1p(float(duration_samples))
-                )
+                (np.log1p(self.duration[begin:end]) - np.log1p(float(duration_samples)))
                 / 2.0
             )
             ** 2
@@ -185,16 +176,12 @@ class FullScoreSyntheticDataset(V13StreamingResidualDataset):
         if row is None:
             raise IndexError(raw_ordinal)
         pair_id, packed_root = str(row[0]), Path(str(row[1])).resolve()
-        metadata = (
-            self._reader(packed_root).record(pair_id, "target_f32").metadata
-        )
+        metadata = self._reader(packed_root).record(pair_id, "target_f32").metadata
         score = self._full_score_lookup.get(str(metadata["excerpt_id"]))
         notes = list(score["absolute_notes"])
         target_index = int(metadata["target_event_index"])
         if not 0 <= target_index < len(notes):
-            raise ValueError(
-                "Target event is outside the frozen complete score"
-            )
+            raise ValueError("Target event is outside the frozen complete score")
         target_note = notes[target_index]
         transposition = int(output["pitch"]) - int(target_note["pitch"])
         events = []
@@ -217,14 +204,9 @@ class FullScoreSyntheticDataset(V13StreamingResidualDataset):
                 event = _clipped_event(
                     int(note["pitch"]) + transposition,
                     target_onset
-                    + round(
-                        (float(note["onset_sec"]) - target_score_onset) * 16_000
-                    ),
+                    + round((float(note["onset_sec"]) - target_score_onset) * 16_000),
                     target_onset
-                    + round(
-                        (float(note["offset_sec"]) - target_score_onset)
-                        * 16_000
-                    ),
+                    + round((float(note["offset_sec"]) - target_score_onset) * 16_000),
                     int(output["valid_samples"]),
                 )
             if event is not None:
@@ -233,15 +215,12 @@ class FullScoreSyntheticDataset(V13StreamingResidualDataset):
                 event["duration_samples"] = max(
                     1,
                     round(
-                        (float(note["offset_sec"]) - float(note["onset_sec"]))
-                        * 16_000
+                        (float(note["offset_sec"]) - float(note["onset_sec"])) * 16_000
                     ),
                 )
                 events.append(event)
         if not events:
-            raise ValueError(
-                "Full score has no event overlapping the sampled window"
-            )
+            raise ValueError("Full score has no event overlapping the sampled window")
         output["full_score_events"] = events
         output["sound_id"] = str(metadata["sound_id"])
         return output
@@ -294,10 +273,8 @@ def collate_full_score(
             target[batch_index, event_index] = bool(event["is_target"])
             if extension_lookup is not None:
                 if use_family_fallback:
-                    mean, scale, minimum, maximum = (
-                        extension_lookup.estimate_family(
-                            str(row["sound_family"])
-                        )
+                    mean, scale, minimum, maximum = extension_lookup.estimate_family(
+                        str(row["sound_family"])
                     )
                 else:
                     mean, scale, minimum, maximum = extension_lookup.estimate(

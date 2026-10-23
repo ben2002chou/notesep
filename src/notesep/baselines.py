@@ -1,9 +1,12 @@
 """Portable adapter for the paper's unchanged float64 score-informed NMF function."""
+
 from __future__ import annotations
 from typing import Any
 from types import SimpleNamespace
 import numpy as np
+
 implementation = SimpleNamespace(MODEL_RATE=16000)
+
 
 def infer_nmf_piece_float64(
     frozen: Any,
@@ -109,21 +112,40 @@ def separate_baseline(audio_path, notes, *, max_iter=1000):
     from .assets import sha256
     from pathlib import Path
     import json
+
     audio = decode_audio(Path(audio_path))
     if isinstance(notes, (str, Path)):
         path = Path(notes)
-        notes = (midi_notes(path.read_bytes(), len(audio)/RATE)
-                 if path.suffix.lower() in ('.mid', '.midi') else json.loads(path.read_text()))
-    notes = validate_notes(notes, len(audio)/RATE)
-    events = [{'pitch':n['pitch'], 'onset_seconds':n['start'], 'offset_seconds':n['end']}
-              for n in notes]
+        notes = (
+            midi_notes(path.read_bytes(), len(audio) / RATE)
+            if path.suffix.lower() in (".mid", ".midi")
+            else json.loads(path.read_text())
+        )
+    notes = validate_notes(notes, len(audio) / RATE)
+    events = [
+        {"pitch": n["pitch"], "onset_seconds": n["start"], "offset_seconds": n["end"]}
+        for n in notes
+    ]
+
     def fit(wave, count):
         result = np.zeros(count, dtype=np.float32)
-        result[:min(count,len(wave))] = wave[:count]
+        result[: min(count, len(wave))] = wave[:count]
         return result
-    adapter = SimpleNamespace(SOURCE_RATE=RATE, to_16k=lambda x, rate:x, fit=fit)
-    prepared = [{'event':e, 'mixture':audio, 'crop_start16':0} for e in events]
-    estimates, contract = infer_nmf_piece_float64(adapter, audio, {'events':events}, prepared, max_iter)
-    return NoteBank(notes, np.stack(estimates), RATE, provenance={
-        'method':'score_informed_nmf', 'contract':contract, 'input_sha256':sha256(audio_path),
-        'endpoint_policy':'provided_score_end', 'role':'portable user tool; frozen paper evaluator is separate'})
+
+    adapter = SimpleNamespace(SOURCE_RATE=RATE, to_16k=lambda x, rate: x, fit=fit)
+    prepared = [{"event": e, "mixture": audio, "crop_start16": 0} for e in events]
+    estimates, contract = infer_nmf_piece_float64(
+        adapter, audio, {"events": events}, prepared, max_iter
+    )
+    return NoteBank(
+        notes,
+        np.stack(estimates),
+        RATE,
+        provenance={
+            "method": "score_informed_nmf",
+            "contract": contract,
+            "input_sha256": sha256(audio_path),
+            "endpoint_policy": "provided_score_end",
+            "role": "portable user tool; frozen paper evaluator is separate",
+        },
+    )

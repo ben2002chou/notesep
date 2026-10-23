@@ -3,6 +3,7 @@
 The mixture is cropped BEFORE HPSS and the separator forward pass. Predictions
 are then placed at that crop's original timestamp, not stretched or re-centred.
 """
+
 from dataclasses import dataclass
 import math
 
@@ -32,9 +33,13 @@ class TrainingWindow:
         if not symbolic_offset <= acoustic_offset <= total:
             raise ValueError("Invalid acoustic endpoint")
         release = max(self.release_samples, acoustic_offset - symbolic_offset)
-        natural = max(self.minimum_window_samples,
-                      symbolic_offset - onset + self.lead_samples + release)
-        desired = min(total, math.ceil(natural / self.window_quantum) * self.window_quantum)
+        natural = max(
+            self.minimum_window_samples,
+            symbolic_offset - onset + self.lead_samples + release,
+        )
+        desired = min(
+            total, math.ceil(natural / self.window_quantum) * self.window_quantum
+        )
         desired = max(symbolic_offset - onset, desired)
         minimum = max(0, symbolic_offset + release - desired)
         maximum = min(max(0, onset - self.lead_samples), total - desired)
@@ -50,6 +55,7 @@ class TrainingWindow:
 def place_prediction(prediction, crop_start, display_start, display_samples):
     """Place only predicted samples; preserve carry-ins and the display boundary."""
     import numpy as np
+
     prediction = np.asarray(prediction)
     if prediction.ndim != 1:
         raise ValueError("Expected a mono prediction")
@@ -57,5 +63,7 @@ def place_prediction(prediction, crop_start, display_start, display_samples):
     left = max(crop_start, display_start)
     right = min(crop_start + len(prediction), display_start + display_samples)
     if right > left:
-        result[left-display_start:right-display_start] = prediction[left-crop_start:right-crop_start]
+        result[left - display_start : right - display_start] = prediction[
+            left - crop_start : right - crop_start
+        ]
     return result

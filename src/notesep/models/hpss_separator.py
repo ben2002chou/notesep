@@ -7,9 +7,9 @@ from typing import Any
 import torch
 from torch import nn
 
-from .dna_residual_tfc_tdf_unet import DNAResidualTFCTDFUNetConfig
-from .occurrence_joint_tfc_tdf_separator import OccurrenceJointTFCTDFSeparator
-from .pitch_relative_harmonic_gate import (
+from .unet import DNAResidualTFCTDFUNetConfig
+from .separator import OccurrenceJointTFCTDFSeparator
+from .harmonic_gate import (
     SOFT_HARMONIC_COMB_FLOOR,
     SOFT_HARMONIC_COMB_SIGMA_CENTS,
     GATE_MODES,
@@ -553,7 +553,7 @@ def occurrence_dual_hpss_separator_from_contract(raw: object) -> OccurrenceDualH
     }
     if communication != expected_communication:
         raise ValueError("Checkpoint has an unsupported NoteSep communication layout")
-    from .occurrence_dual_hpss_symmetric_alignment import (
+    from .alignment import (
         OccurrenceDualHPSSSymmetricAlignment,
     )
 

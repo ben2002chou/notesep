@@ -57,8 +57,7 @@ def note_axis_scan_policy(torch):
                     or torch.is_deterministic_algorithms_warn_only_enabled()
                 ):
                     raise RuntimeError(
-                        "Fixed note-axis scan requires strict "
-                        "deterministic mode"
+                        "Fixed note-axis scan requires strict deterministic mode"
                     )
                 return FixedOrderScan.apply(values, 1)
             return original(values, dim, dtype=dtype)
@@ -80,9 +79,7 @@ def bind_policy(path, policy):
                 "Deterministic training runtime differs from the saved policy"
             )
         return
-    if any(
-        (path.parent / name).exists() for name in ("CONTRACT.json", "RESUME.pt")
-    ):
+    if any((path.parent / name).exists() for name in ("CONTRACT.json", "RESUME.pt")):
         raise ValueError(
             "Existing output has no matching deterministic policy. "
             "Choose a new output directory."
@@ -140,9 +137,7 @@ def run_bound_entry(entry, remaining, path, policy):
                 bind_policy(path, policy)
             else:
                 with path.open("x") as stream:
-                    stream.write(
-                        json.dumps(policy, indent=2, sort_keys=True) + "\n"
-                    )
+                    stream.write(json.dumps(policy, indent=2, sort_keys=True) + "\n")
 
 
 def parse_runtime_arguments(argv=None):
@@ -195,9 +190,7 @@ def main():
         "torch_version": torch.__version__,
         "cuda_version": torch.version.cuda,
         "torch_git_version": torch.version.git_version,
-        "note_axis_scan": (
-            "fixed_order_float32_forward_and_reverse_derivative_v1"
-        ),
+        "note_axis_scan": ("fixed_order_float32_forward_and_reverse_derivative_v1"),
         "cudnn_version": torch.backends.cudnn.version(),
         "gpu": torch.cuda.get_device_name(0),
         "compute_capability": list(torch.cuda.get_device_capability(0)),

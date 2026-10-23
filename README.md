@@ -1,105 +1,72 @@
 # NoteSep
 
-NoteSep separates a music recording into individual notes when you give it an aligned score. You can correct the score against the audio, listen to each separated note, then retune, move, mute, or export the notes as audio tracks.
+Score-informed note separation: turn a recording and its aligned MIDI score into
+individual note waveforms.
 
-[Paper](https://arxiv.org/abs/2609.29071) · [Inference checkpoints](https://huggingface.co/ben2002chou/notesep) · [Listen to examples](https://benschou.com/notesep/)
+[Paper](https://arxiv.org/abs/2609.29071) · [Checkpoints](https://huggingface.co/ben2002chou/notesep) · [Audio examples](https://benschou.com/notesep/)
 
-This repository includes the Python API, command-line tool, local piano-roll editor, and our score-informed NMF baseline. The example below runs without a neural checkpoint.
+NoteSep uses **NoteGrab** to estimate each note, then **ASO** to refine the estimates
+together. This repository contains the training recipes, pretrained inference,
+and our score-informed NMF baseline.
 
-## Try the example
+## Installation
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and use
-Python 3.10 or newer. From the repository root:
-
-```sh
-uv sync --extra baseline
-
-uv run notesep baseline src/notesep/studio_static/examples/mixture.wav \
-  --score src/notesep/studio_static/examples/score.mid \
-  --output example-notes --iterations 1000
-uv run notesep render example-notes/project.json --output edited.wav
-```
-
-`example-notes/` contains one WAV per note, their sum, and a project you can reopen. `edited.wav` matches the sum until you make an edit.
-
-## Checkpoints
-
-Studio and command-line inference use the released separator and ASO checkpoint
-pair. Install the Studio dependencies, then download the pair and check its
-file hashes:
+Use Python 3.10 or newer and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+Run these commands from the repository root:
 
 ```sh
-uv sync --extra studio
+uv sync
 uv run notesep download
-uv run notesep verify
 ```
+
+The download command retrieves and checks both inference checkpoints. They are
+cached in `~/.cache/notesep/weights/paper-table1/`. Set `NOTESEP_WEIGHTS` to use
+another directory containing `separator.pt` and `aso.pt`.
 
 ## Inference
 
-Start the editor:
+Run the bundled example:
 
 ```sh
-uv run notesep studio
+uv run notesep separate src/notesep/studio_static/examples/mixture.wav \
+  --score src/notesep/studio_static/examples/score.mid --output separated
+uv run notesep render separated/project.json --output reconstructed.wav
 ```
 
-In Studio, upload a WAV, FLAC, MP3, or AIFF recording and an aligned MIDI file, or ask for a draft transcription. Fix wrong or missing notes in the piano roll before separating. You can then audition and edit the note audio, download an edited mix, or save the stems and project for later.
+For your own recording, replace the audio and MIDI paths. The score supplies each
+note's pitch, onset, and offset; it should already be aligned to the recording.
+The output directory contains one WAV per note, `sum.wav`, and `project.json`.
+The WAVs are aligned, mono, and sampled at 16 kHz.
 
-If you already have a corrected score, you can work from the command line:
+For a longer recording, choose a passage:
 
 ```sh
-uv run notesep separate recording.wav --score corrected.mid --output separated
-uv run notesep render separated/project.json --output edited.wav
+uv run notesep separate recording.wav --score score.mid --output passage \
+  --window-start 30 --window-seconds 12
 ```
 
-Use `--window-start` and `--window-seconds` to select a 1.1–12 second passage from a longer recording. Scores can be MIDI or JSON; by default, their times refer to the full recording. See `notesep separate --help` for the remaining options.
-
-<details>
-<summary>Python API and output files</summary>
-
-## Python API
-
-```python
-from notesep import NoteSep
-import soundfile as sf
-
-bank = NoteSep(device="auto").separate("recording.wav", "corrected.mid")
-bank.export("separated")
-
-note_id = str(bank.notes[0]["id"])
-edited = bank.render({note_id: {"pitchShift": 2, "delta": 0.05}})
-sf.write("edited.wav", edited, bank.sample_rate)
-```
-
-`pitchShift` is in semitones and `delta` is in seconds. You can also change `stretch` and `gainDb`, or set `mute`. The render is a direct sum of the note estimates.
-
-## Outputs
-
-Each project contains aligned 16 kHz mono WAVs (`note-0000-midi-<pitch>.wav`, etc.), `sum.wav`, `score.json`, and `project.json`. Neural projects may also contain `raw-*.wav` estimates from before joint separation. You can import the note WAVs into a DAW or reopen the project to keep editing.
-
-</details>
+Choose a 1.1–12 second passage with at most 96 notes. MIDI times refer to the full
+recording. JSON scores are also supported; see the [Python API and score format](src/notesep/README.md).
 
 ## Training
 
-The paper has two training recipes: NoteGrab and ASO. Install the training
-dependencies and download the NoteGrab starting checkpoint:
+Install the training dependencies:
 
 ```sh
 uv sync --extra train
-uv run python training/download_initial_checkpoint.py --output checkpoints
 ```
 
-NoteGrab's paper recipe starts from `checkpoints/0441537c.pt`, saved at training
-step 250. Download it only when reproducing training; normal inference uses the
-checkpoint pair above. Then launch NoteGrab with the prepared data package:
+**NoteGrab:** the supplied recipe continues from the step-250 initialization
+checkpoint. It loads the model weights and starts a new optimizer.
 
 ```sh
+uv run python training/download_initial_checkpoint.py --output checkpoints
 uv run python train.py stage=notegrab run.dir=outputs/notegrab \
   data.root=/path/to/notegrab-data \
   data.initialization=checkpoints/0441537c.pt
 ```
 
-ASO trains from scratch. Its inputs are an index of synthesized examples,
-recorded audio, and precomputed note proposals:
+**ASO:** train from scratch using the audio and cached NoteGrab estimates:
 
 ```sh
 uv run python train.py stage=aso run.dir=outputs/aso \
@@ -108,29 +75,55 @@ uv run python train.py stage=aso run.dir=outputs/aso \
   data.proposal_root=/path/to/proposal-data
 ```
 
-The [training guide](training/README.md) explains how the data inputs are
-checked and how to download a dataset package.
+Training uses CUDA and [Hydra configs](configs/README.md). The packed training
+dataset is not yet published; these commands require a local copy. See the
+[training guide](training/README.md) for data preparation and checkpoint outputs.
+
+## Editing notes
+
+The optional Studio provides an audio player and piano-roll editor:
+
+```sh
+uv sync --extra studio
+uv run notesep studio
+```
+
+Upload audio and a MIDI score, or request a draft transcription. Correct the
+score before separating, then listen to, move, retune, mute, or export the notes.
+The [Python API](src/notesep/README.md) also supports editing and project export.
 
 <details>
-<summary>Repository layout</summary>
+<summary>NMF baseline</summary>
 
-## Repository layout
+This baseline uses the score to guide nonnegative matrix factorization and needs
+no neural checkpoint:
 
-| Path | Purpose |
-| --- | --- |
-| `src/notesep/` | Python API, command-line tools, Studio, and inference support |
-| `src/notesep/models/` | Released model architecture and checkpoint-loading code |
-| `configs/` | Hydra training recipes and their stage settings |
-| `training/` | Paper training launchers, data readers, samplers, and input checks |
-| `train.py` | Selects and launches a configured training recipe |
-| `pyproject.toml` | Package metadata and optional dependency groups |
-| `THIRD_PARTY_NOTICES.md` | Licenses and notices for included third-party code |
-| `CITATION.cff` | Citation metadata for the paper and software |
-| `LICENSE` | License for this repository |
-| `.gitignore` | Excludes local environments, caches, and generated files from Git |
+```sh
+uv sync --extra baseline
+uv run notesep baseline src/notesep/studio_static/examples/mixture.wav \
+  --score src/notesep/studio_static/examples/score.mid \
+  --output nmf-notes --iterations 1000
+```
+
+It writes the same project format as neural inference.
 
 </details>
 
+## Code layout
+
+| Path | Contents |
+| --- | --- |
+| [`train.py`](train.py) | Select and launch a training recipe. |
+| [`configs/`](configs/README.md) | Hydra settings for NoteGrab and ASO. |
+| [`training/`](training/README.md) | Training loops, datasets, and losses. |
+| [`src/notesep/`](src/notesep/README.md) | Inference, Python API, CLI, and editor. |
+| [`src/notesep/models/`](src/notesep/models/README.md) | Network layers shared by training and inference. |
+| `pyproject.toml`, `uv.lock` | Dependencies, package settings, and locked environment. |
+| `.gitignore` | Local data, environments, and generated output exclusions. |
+| `LICENSE`, `THIRD_PARTY_NOTICES.md` | Code license and notices for bundled code. |
+| `CITATION.cff` | Paper citation. |
+
 ## Citation
 
-If you use NoteSep in research, please cite the [paper](https://arxiv.org/abs/2609.29071) or use [CITATION.cff](CITATION.cff). The code is [AGPL-3.0-only](LICENSE); [third-party notices](THIRD_PARTY_NOTICES.md) are included.
+If you use NoteSep, please cite the [paper](https://arxiv.org/abs/2609.29071)
+or use [CITATION.cff](CITATION.cff). The code is [AGPL-3.0-only](LICENSE).

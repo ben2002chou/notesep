@@ -10,11 +10,11 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from .dna_residual_tfc_framewise_conditioned import (
+from .conditioning import (
     DNAResidualTFCFramewiseConditioned,
     _SpatialFiLM,
 )
-from .dna_residual_tfc_tdf_unet import (
+from .unet import (
     DNAResidualTFCTDFUNetConfig,
     dna_residual_tfc_tdf_unet_config,
 )

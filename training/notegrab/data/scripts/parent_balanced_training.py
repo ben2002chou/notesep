@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Old-contract target crops with uniform global physical-source sampling."""
+"""Balance note crops across physical sound sources and expose the final trainer."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ import os
 from typing import Any
 
 import target_cropped_training as cropped
+from event_cluster_data import base as trainer, selective
+from library_balanced_sampling import SCORE_BOUND_SUPPLEMENTAL_FAMILIES
 
 
 class ParentBalancedTargetCroppedSampler(cropped.TargetCroppedLibraryBalancedSampler):
@@ -54,10 +56,10 @@ def sampler_contract(args: Any) -> dict[str, Any]:
     }
 
 
-cropped.v2.trackbound.v1.base.DeterministicMixedBatchSampler = ParentBalancedTargetCroppedSampler
-cropped.v2.trackbound.v1.base.sampler_contract = sampler_contract
+trainer.DeterministicMixedBatchSampler = ParentBalancedTargetCroppedSampler
+trainer.sampler_contract = sampler_contract
 
 
 if __name__ == "__main__":
     os.environ.setdefault("SCNS_REQUIRE_ALL_16_RECORDED_FAMILIES", "0")
-    cropped.v2.trackbound.v1.base.main()
+    trainer.main()

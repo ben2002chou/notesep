@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""SCNS-v3 score-bound rows cropped around each complete acoustic target.
+"""Crop each query around its complete note, including acoustic release.
 
-This overlay enforces one acoustic-endpoint crop/conditioning contract across
-synthetic and recorded rows. It retains the v2 source sampler, synthetic
-ordering, model, losses, optimizer, and augmentation probabilities. No target
-acoustic endpoint is truncated and held-at-entry notes remain held.
-"""
+The same crop geometry is used for synthetic and recorded examples. Notes
+already sounding at the left boundary retain their negative onset."""
 
 from __future__ import annotations
 

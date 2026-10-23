@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from .packed_blob_shards import PackedBlobShardReader
+from .shards import PackedBlobShardReader
 
 
 # A crop-edge fragment is still part of the exact additive source bank, but it
@@ -27,7 +27,9 @@ QUERY_EDGE_GUARD_SAMPLES = 640  # 40 ms at the fixed 16 kHz bank rate.
 MINIMUM_QUERY_HELD_SAMPLES = 1_600  # 100 ms of held-note evidence.
 
 
-def crop_query_eligible(relative_onset: int, relative_offset: int, samples: int) -> bool:
+def crop_query_eligible(
+    relative_onset: int, relative_offset: int, samples: int
+) -> bool:
     """Return whether a cropped stem has enough score support to be a query."""
     onset = int(relative_onset)
     offset = int(relative_offset)
@@ -124,7 +126,10 @@ class FreshSourceCompleteDataset(Dataset[dict[str, Any]]):
         return reader
 
     def _crop_start(
-        self, mixture_id: str, bank: dict[str, Any], crop_variant: int = 0,
+        self,
+        mixture_id: str,
+        bank: dict[str, Any],
+        crop_variant: int = 0,
     ) -> int:
         total = int(bank["samples"])
         count = min(total, self.crop_samples)
@@ -159,10 +164,15 @@ class FreshSourceCompleteDataset(Dataset[dict[str, Any]]):
         else:
             mixture_index, crop_variant = int(index), 0
         mixture_id = self.mixture_ids[mixture_index]
-        row = self._database().execute(
-            "SELECT source_parent_id,renderer,bank_json FROM banks "
-            "WHERE mixture_id=?", (mixture_id,)
-        ).fetchone()
+        row = (
+            self._database()
+            .execute(
+                "SELECT source_parent_id,renderer,bank_json FROM banks "
+                "WHERE mixture_id=?",
+                (mixture_id,),
+            )
+            .fetchone()
+        )
         if row is None:
             raise KeyError(mixture_id)
         source_parent_id, renderer, bank_json = row
@@ -212,11 +222,15 @@ class FreshSourceCompleteDataset(Dataset[dict[str, Any]]):
         else:
             mixture_index, crop_variant = int(index), 0
         mixture_id = self.mixture_ids[mixture_index]
-        row = self._database().execute(
-            "SELECT source_parent_id,score_parent_id,packed_root,bank_json "
-            "FROM banks WHERE mixture_id=?",
-            (mixture_id,),
-        ).fetchone()
+        row = (
+            self._database()
+            .execute(
+                "SELECT source_parent_id,score_parent_id,packed_root,bank_json "
+                "FROM banks WHERE mixture_id=?",
+                (mixture_id,),
+            )
+            .fetchone()
+        )
         if row is None:
             raise KeyError(mixture_id)
         source_parent_id, score_parent_id, packed_root, bank_json = row
@@ -234,7 +248,10 @@ class FreshSourceCompleteDataset(Dataset[dict[str, Any]]):
         )
         notes: list[tuple[dict[str, Any], np.ndarray]] = []
         for metadata in bank["notes"]:
-            if self.require_acoustic_offsets and "acoustic_offset_sample" not in metadata:
+            if (
+                self.require_acoustic_offsets
+                and "acoustic_offset_sample" not in metadata
+            ):
                 raise ValueError(
                     f"bank {mixture_id} lacks measured acoustic RT2 offsets"
                 )
@@ -248,9 +265,7 @@ class FreshSourceCompleteDataset(Dataset[dict[str, Any]]):
             if np.any(waveform != 0.0):
                 notes.append((metadata, waveform))
         if not notes or len(notes) > self.maximum_sources:
-            raise ValueError(
-                f"crop has invalid active K={len(notes)} for {mixture_id}"
-            )
+            raise ValueError(f"crop has invalid active K={len(notes)} for {mixture_id}")
         targets = np.stack([waveform for _, waveform in notes]).astype(np.float32)
         mixture = np.asarray(mixture, dtype=np.float32)
         additive_error = float(np.max(np.abs(targets.sum(axis=0) - mixture)))
@@ -268,83 +283,112 @@ class FreshSourceCompleteDataset(Dataset[dict[str, Any]]):
             # score endpoints: a held/reverberant stem can be active even
             # when its symbolic onset is before the crop.
             "source_valid": torch.ones(len(notes), dtype=torch.bool),
-            "query_valid": torch.tensor([
-                crop_query_eligible(
-                    int(metadata["onset_sample"]) - start,
-                    int(
-                        metadata.get(
-                            "acoustic_offset_sample", metadata["offset_sample"]
+            "query_valid": torch.tensor(
+                [
+                    crop_query_eligible(
+                        int(metadata["onset_sample"]) - start,
+                        int(
+                            metadata.get(
+                                "acoustic_offset_sample", metadata["offset_sample"]
+                            )
                         )
-                    ) - start,
-                    count,
-                )
-                for metadata, _ in notes
-            ], dtype=torch.bool),
+                        - start,
+                        count,
+                    )
+                    for metadata, _ in notes
+                ],
+                dtype=torch.bool,
+            ),
             # Preserve the legacy/frozen query-membership contract separately
             # when acoustic offsets are present.  An acoustic release may make
             # an edge fragment valid as source-bank context, but changing the
             # scored request set would confound endpoint-only ablations.
-            "query_valid_symbolic": torch.tensor([
-                crop_query_eligible(
-                    int(metadata["onset_sample"]) - start,
-                    int(metadata.get("symbolic_offset_sample", metadata["offset_sample"]))
-                    - start,
-                    count,
-                )
-                for metadata, _ in notes
-            ], dtype=torch.bool),
+            "query_valid_symbolic": torch.tensor(
+                [
+                    crop_query_eligible(
+                        int(metadata["onset_sample"]) - start,
+                        int(
+                            metadata.get(
+                                "symbolic_offset_sample", metadata["offset_sample"]
+                            )
+                        )
+                        - start,
+                        count,
+                    )
+                    for metadata, _ in notes
+                ],
+                dtype=torch.bool,
+            ),
             "pitches": torch.tensor(
                 [int(metadata["pitch"]) for metadata, _ in notes], dtype=torch.long
             ),
-            "onsets": torch.tensor([
-                (
-                    int(metadata["onset_sample"]) - start
-                    if self.preserve_signed_note_times else
-                    max(0, min(count, int(metadata["onset_sample"]) - start))
-                )
-                for metadata, _ in notes
-            ], dtype=torch.long),
-            "offsets": torch.tensor([
-                (
-                    int(
-                        metadata.get(
-                            "acoustic_offset_sample", metadata["offset_sample"]
+            "onsets": torch.tensor(
+                [
+                    (
+                        int(metadata["onset_sample"]) - start
+                        if self.preserve_signed_note_times
+                        else max(0, min(count, int(metadata["onset_sample"]) - start))
+                    )
+                    for metadata, _ in notes
+                ],
+                dtype=torch.long,
+            ),
+            "offsets": torch.tensor(
+                [
+                    (
+                        int(
+                            metadata.get(
+                                "acoustic_offset_sample", metadata["offset_sample"]
+                            )
                         )
-                    ) - start
-                    if self.preserve_signed_note_times else
-                    max(
-                        0,
-                        min(
-                            count,
-                            int(
-                                metadata.get(
-                                    "acoustic_offset_sample", metadata["offset_sample"]
+                        - start
+                        if self.preserve_signed_note_times
+                        else max(
+                            0,
+                            min(
+                                count,
+                                int(
+                                    metadata.get(
+                                        "acoustic_offset_sample",
+                                        metadata["offset_sample"],
+                                    )
                                 )
-                            ) - start,
-                        ),
+                                - start,
+                            ),
+                        )
                     )
-                )
-                for metadata, _ in notes
-            ], dtype=torch.long),
-            "symbolic_offsets": torch.tensor([
-                (
-                    int(metadata.get("symbolic_offset_sample", metadata["offset_sample"]))
-                    - start
-                    if self.preserve_signed_note_times else
-                    max(
-                        0,
-                        min(
-                            count,
-                            int(
-                                metadata.get(
-                                    "symbolic_offset_sample", metadata["offset_sample"]
+                    for metadata, _ in notes
+                ],
+                dtype=torch.long,
+            ),
+            "symbolic_offsets": torch.tensor(
+                [
+                    (
+                        int(
+                            metadata.get(
+                                "symbolic_offset_sample", metadata["offset_sample"]
+                            )
+                        )
+                        - start
+                        if self.preserve_signed_note_times
+                        else max(
+                            0,
+                            min(
+                                count,
+                                int(
+                                    metadata.get(
+                                        "symbolic_offset_sample",
+                                        metadata["offset_sample"],
+                                    )
                                 )
-                            ) - start,
-                        ),
+                                - start,
+                            ),
+                        )
                     )
-                )
-                for metadata, _ in notes
-            ], dtype=torch.long),
+                    for metadata, _ in notes
+                ],
+                dtype=torch.long,
+            ),
             "valid_samples": count,
             "additive_error_max_abs": additive_error,
         }

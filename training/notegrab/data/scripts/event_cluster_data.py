@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""Train the frozen symmetric separator with exact real-score event clusters.
-
-This is a data-adapter overlay only.  It reuses the frozen selective symmetric
-model, HPSS losses, score conditioning, optimizer, and scheduler.  Unlike the
-older cross-instrument overlay it reads the native ``notes`` schema emitted by
-the real-score event-cluster builder, so no legacy transposition/loop metadata
-is silently assumed.
-"""
+"""Load recorded score scenes and mix their note targets into training batches."""
 
 from __future__ import annotations
 

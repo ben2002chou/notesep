@@ -37,7 +37,7 @@ def main():
     }
     command = [
         sys.executable,
-        str(source / "scripts/train_acoustic_ownership.py"),
+        str(source / "train.py"),
         "--arm",
         settings["arm"],
         "--seed",
@@ -77,9 +77,7 @@ def main():
         print("ASO inputs are present. Training was not started.", flush=True)
         return
     env = os.environ.copy()
-    env["PYTHONPATH"] = (
-        str(ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")
-    )
+    env["PYTHONPATH"] = str(ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")
     result = subprocess.run(command, cwd=ROOT, env=env)
     raise SystemExit(result.returncode)
 

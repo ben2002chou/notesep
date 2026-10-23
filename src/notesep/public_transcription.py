@@ -1,4 +1,5 @@
 """Small client for the public MuScriptor MIDI endpoint."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,26 +20,34 @@ def transcribe_with_yourmt3(audio_path: Path) -> bytes:
     """Request one bounded window and return validated MIDI bytes."""
     from gradio_client import Client, handle_file
     from .score_io import MAX_MIDI_BYTES
-    client = Client('mimbres/YourMT3', max_workers=1, verbose=False,
-                    httpx_kwargs={'timeout': 100})
+
+    client = Client(
+        "mimbres/YourMT3", max_workers=1, verbose=False, httpx_kwargs={"timeout": 100}
+    )
     try:
-        job = client.submit(handle_file(str(audio_path)), api_name='/process_audio')
+        job = client.submit(handle_file(str(audio_path)), api_name="/process_audio")
         try:
             result = job.result(timeout=90)
         except TimeoutError as error:
             job.cancel()
-            raise ValueError('YourMT3+ did not finish within 90 seconds. Retry, use a shorter window, or import aligned MIDI.') from error
+            raise ValueError(
+                "YourMT3+ did not finish within 90 seconds. Retry, use a shorter window, or import aligned MIDI."
+            ) from error
     finally:
         client.close()
     match = MIDI_HTML_RE.search(result) if isinstance(result, str) else None
     if not match or len(match.group(1)) > 4 * ((MAX_MIDI_BYTES + 2) // 3):
-        raise ValueError('YourMT3+ did not return bounded MIDI; import aligned MIDI instead')
+        raise ValueError(
+            "YourMT3+ did not return bounded MIDI; import aligned MIDI instead"
+        )
     try:
         data = base64.b64decode(match.group(1), validate=True)
     except ValueError as error:
-        raise ValueError('YourMT3+ returned invalid MIDI encoding') from error
-    if not data.startswith(b'MThd') or len(data) > MAX_MIDI_BYTES:
-        raise ValueError('YourMT3+ did not return valid MIDI; import aligned MIDI instead')
+        raise ValueError("YourMT3+ returned invalid MIDI encoding") from error
+    if not data.startswith(b"MThd") or len(data) > MAX_MIDI_BYTES:
+        raise ValueError(
+            "YourMT3+ did not return valid MIDI; import aligned MIDI instead"
+        )
     return data
 
 
@@ -47,7 +56,7 @@ def _retry_delay(response: requests.Response, attempt: int) -> float:
     try:
         return min(8.0, max(0.0, float(response.headers.get("retry-after", ""))))
     except (TypeError, ValueError):
-        return min(8.0, 1.0 * (2 ** attempt))
+        return min(8.0, 1.0 * (2**attempt))
 
 
 def transcribe_with_public_muscriptor(audio_path: Path, instrument: str = "") -> bytes:
@@ -71,8 +80,10 @@ def transcribe_with_public_muscriptor(audio_path: Path, instrument: str = "") ->
             try:
                 response.raise_for_status()
             except requests.HTTPError as error:
-                busy = (response.status_code == 503 and
-                        "server busy" in response.text.lower())
+                busy = (
+                    response.status_code == 503
+                    and "server busy" in response.text.lower()
+                )
                 if not busy or attempt >= MUSCRIPTOR_BUSY_RETRIES:
                     raise
                 time.sleep(_retry_delay(response, attempt))

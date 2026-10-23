@@ -15,13 +15,16 @@ from torch import nn
 import torch.nn.functional as F
 from torch.utils.checkpoint import checkpoint_sequential
 
-from .adaptive_sparse_ownership import sparsemax_notes
+from .simplex import sparsemax_notes
 
 
 FeatureSet = Literal[
-    "legacy11", "essential6", "essential7_relative_peak",
+    "legacy11",
+    "essential6",
+    "essential7_relative_peak",
     "essential7_harmonic_prominence",
-    "essential7_relative_harmonic_loudness", "essential6_phase"
+    "essential7_relative_harmonic_loudness",
+    "essential6_phase",
 ]
 PhaseMode = Literal["mixture", "hybrid_delta", "direct_complex"]
 MagnitudeReference = Literal["mixture", "raw_total"]
@@ -55,9 +58,7 @@ class _LocalBlock(nn.Module):
     def __init__(self, channels: int) -> None:
         super().__init__()
         self.norm = nn.GroupNorm(min(8, channels), channels)
-        self.depthwise = nn.Conv2d(
-            channels, channels, 3, padding=1, groups=channels
-        )
+        self.depthwise = nn.Conv2d(channels, channels, 3, padding=1, groups=channels)
         self.pointwise = nn.Sequential(
             nn.Conv2d(channels, 2 * channels, 1),
             nn.SiLU(),
@@ -126,8 +127,13 @@ class TemporalHybridSetOwnership(nn.Module):
         if self.config.phase_mode not in {"mixture", "hybrid_delta", "direct_complex"}:
             raise ValueError(f"invalid phase mode: {self.config.phase_mode}")
         if self.config.magnitude_reference not in {"mixture", "raw_total"}:
-            raise ValueError(f"invalid magnitude reference: {self.config.magnitude_reference}")
-        if self.config.phase_mode != "mixture" and self.config.feature_set != "essential6_phase":
+            raise ValueError(
+                f"invalid magnitude reference: {self.config.magnitude_reference}"
+            )
+        if (
+            self.config.phase_mode != "mixture"
+            and self.config.feature_set != "essential6_phase"
+        ):
             raise ValueError("phase-aware output requires essential6_phase inputs")
         if (
             self.config.hidden_channels < 4
@@ -197,16 +203,24 @@ class TemporalHybridSetOwnership(nn.Module):
         raw_unit = _unit(raw, self.config.epsilon)
         mix_unit = _unit(mixture, self.config.epsilon)[:, None]
         phase_cosine = (raw_unit.conj() * mix_unit).real.clamp(-1, 1)
-        log_ratio = torch.log(
-            (magnitude + self.config.epsilon) / (mix_mag + self.config.epsilon)
-        ).clamp(-6, 6) / 6
+        log_ratio = (
+            torch.log(
+                (magnitude + self.config.epsilon) / (mix_mag + self.config.epsilon)
+            ).clamp(-6, 6)
+            / 6
+        )
         raw_log = torch.log1p(20 * magnitude) / 4
         mix_log = torch.log1p(20 * mix_mag).expand_as(raw_log) / 4
-        flux = F.pad(
-            torch.log1p(20 * mixture.abs())[..., 1:]
-            - torch.log1p(20 * mixture.abs())[..., :-1],
-            (1, 0),
-        )[:, None].expand_as(raw_log).clamp(-2, 2) / 2
+        flux = (
+            F.pad(
+                torch.log1p(20 * mixture.abs())[..., 1:]
+                - torch.log1p(20 * mixture.abs())[..., :-1],
+                (1, 0),
+            )[:, None]
+            .expand_as(raw_log)
+            .clamp(-2, 2)
+            / 2
+        )
 
         hz = (
             torch.arange(frequency, device=raw.device, dtype=raw.real.dtype)
@@ -245,18 +259,18 @@ class TemporalHybridSetOwnership(nn.Module):
         # channel remains separate, so off-comb bins cannot masquerade as
         # harmonics merely because their nearest expected partial is strong.
         bin_hz = self.config.sample_rate / self.config.n_fft
-        harmonic_center_bin = torch.round(
-            harmonic * f0[..., None] / bin_hz
-        ).long().clamp(0, frequency - 1)
+        harmonic_center_bin = (
+            torch.round(harmonic * f0[..., None] / bin_hz)
+            .long()
+            .clamp(0, frequency - 1)
+        )
         harmonic_peak = nearest_peak_magnitude.gather(
             2, harmonic_center_bin[..., None].expand(-1, -1, -1, frames)
         )
-        harmonic_center_valid = (
-            harmonic * f0[..., None]
-            <= self.config.sample_rate / 2
-        )
+        harmonic_center_valid = harmonic * f0[..., None] <= self.config.sample_rate / 2
         harmonic_peak = torch.where(
-            harmonic_center_valid[..., None], harmonic_peak,
+            harmonic_center_valid[..., None],
+            harmonic_peak,
             torch.zeros_like(harmonic_peak),
         )
         strongest_harmonic_peak = harmonic_peak.amax(2, keepdim=True)
@@ -278,15 +292,15 @@ class TemporalHybridSetOwnership(nn.Module):
             2, harmonic_center_bin[..., None].expand(-1, -1, -1, frames)
         )
         harmonic_band_power = torch.where(
-            harmonic_center_valid[..., None], harmonic_band_power,
+            harmonic_center_valid[..., None],
+            harmonic_band_power,
             torch.zeros_like(harmonic_band_power),
         )
         note_power = magnitude.square().sum(2, keepdim=True)
         relative_harmonic_loudness = torch.where(
             note_power > self.config.epsilon**2,
             torch.sqrt(
-                harmonic_band_power
-                / note_power.clamp_min(self.config.epsilon**2)
+                harmonic_band_power / note_power.clamp_min(self.config.epsilon**2)
             ),
             torch.zeros_like(harmonic_band_power),
         ).clamp(0, 1)
@@ -324,19 +338,31 @@ class TemporalHybridSetOwnership(nn.Module):
         values, base = self._common_features(mixture, raw, pitches)
         if self.config.feature_set == "legacy11":
             names = (
-                "raw_log", "mixture_log", "log_ratio", "phase_agreement",
-                "base_ownership", "mixture_flux", "relative_semitone",
-                "pitch_sine", "pitch_cosine", "nearest_harmonic_cents",
+                "raw_log",
+                "mixture_log",
+                "log_ratio",
+                "phase_agreement",
+                "base_ownership",
+                "mixture_flux",
+                "relative_semitone",
+                "pitch_sine",
+                "pitch_cosine",
+                "nearest_harmonic_cents",
                 "harmonic_number",
             )
         elif self.config.feature_set in {
-            "essential6", "essential7_relative_peak",
+            "essential6",
+            "essential7_relative_peak",
             "essential7_harmonic_prominence",
             "essential7_relative_harmonic_loudness",
         }:
             names = (
-                "mixture_log", "log_ratio", "base_ownership",
-                "phase_agreement", "nearest_harmonic_cents", "harmonic_number",
+                "mixture_log",
+                "log_ratio",
+                "base_ownership",
+                "phase_agreement",
+                "nearest_harmonic_cents",
+                "harmonic_number",
             )
             if self.config.feature_set == "essential7_relative_peak":
                 names = (*names, "relative_nearest_peak")
@@ -346,10 +372,16 @@ class TemporalHybridSetOwnership(nn.Module):
                 names = (*names, "relative_harmonic_loudness")
         else:
             names = (
-                "mixture_log", "log_ratio", "base_ownership",
-                "phase_agreement", "nearest_harmonic_cents", "harmonic_number",
-                "raw_phase_real", "raw_phase_imag",
-                "mixture_phase_real", "mixture_phase_imag",
+                "mixture_log",
+                "log_ratio",
+                "base_ownership",
+                "phase_agreement",
+                "nearest_harmonic_cents",
+                "harmonic_number",
+                "raw_phase_real",
+                "raw_phase_imag",
+                "mixture_phase_real",
+                "mixture_phase_imag",
             )
         return torch.stack(tuple(values[name] for name in names), dim=2), base
 
@@ -423,7 +455,14 @@ class TemporalHybridSetOwnership(nn.Module):
         *,
         hard_phase: bool = True,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        del anchors, onsets, midi_offsets, acoustic_offsets, harmonic_logits, percussive_logits
+        del (
+            anchors,
+            onsets,
+            midi_offsets,
+            acoustic_offsets,
+            harmonic_logits,
+            percussive_logits,
+        )
         if mixture.ndim != 3 or raw.ndim != 4 or raw.shape[0] != mixture.shape[0]:
             raise ValueError("invalid mixture/note-bank geometry")
         if raw.shape[1] < 2 or raw.shape[-2:] != mixture.shape[-2:]:
@@ -442,14 +481,10 @@ class TemporalHybridSetOwnership(nn.Module):
                 )
         else:
             local = self.temporal(self.local(local))
-        local = local.view(
-            batch, notes, -1, frequency, frames
-        )
+        local = local.view(batch, notes, -1, frequency, frames)
         mean = local.mean(1, keepdim=True).expand_as(local)
         maximum = local.amax(1, keepdim=True).expand_as(local)
-        memory = self.set_fuse(
-            torch.cat((local, mean, maximum), 2).flatten(0, 1)
-        )
+        memory = self.set_fuse(torch.cat((local, mean, maximum), 2).flatten(0, 1))
         delta = self.config.maximum_simplex_correction * torch.tanh(
             self.magnitude_delta(memory)[:, 0]
         ).view(batch, notes, frequency, frames)
@@ -492,7 +527,9 @@ class TemporalHybridSetOwnership(nn.Module):
                 / self.config.phase_switch_temperature
             )
             probability = probability * below_cutoff
-            selector = _straight_through_binary(probability) if hard_phase else probability
+            selector = (
+                _straight_through_binary(probability) if hard_phase else probability
+            )
             carrier = _unit(
                 selector * raw_unit + (1 - selector) * mix_unit,
                 self.config.epsilon,
@@ -508,10 +545,15 @@ class TemporalHybridSetOwnership(nn.Module):
                 torch.tanh(components[:, :, 0]), torch.tanh(components[:, :, 1])
             )
             corrected_unit = _unit(raw_unit + complex_change_value, self.config.epsilon)
-            probability = torch.sigmoid(
-                self.phase_confidence(memory)[:, 0]
-            ).view(batch, notes, frequency, frames) * below_cutoff
-            selector = _straight_through_binary(probability) if hard_phase else probability
+            probability = (
+                torch.sigmoid(self.phase_confidence(memory)[:, 0]).view(
+                    batch, notes, frequency, frames
+                )
+                * below_cutoff
+            )
+            selector = (
+                _straight_through_binary(probability) if hard_phase else probability
+            )
             # High confidence preserves the raw note phase; low confidence uses
             # the learned bounded complex correction.  Above 4.8 kHz the
             # mixture phase is always used.
@@ -594,13 +636,15 @@ class TemporalHybridSetOwnership(nn.Module):
                 and self.config.magnitude_reference == "mixture"
                 and self.config.phase_mode == "mixture"
             ),
-            "magnitude_partition_consistency": self.config.magnitude_reference == "mixture",
+            "magnitude_partition_consistency": self.config.magnitude_reference
+            == "mixture",
             "raw_empty_bin_policy": (
                 "assign every mixture bin across notes"
                 if self.config.exact_mixture_additivity
                 else "leave bins unassigned when every raw proposal is zero"
             ),
-            "raw_total_magnitude_conservation": self.config.magnitude_reference == "raw_total",
+            "raw_total_magnitude_conservation": self.config.magnitude_reference
+            == "raw_total",
             "test_data_used": False,
         }
 

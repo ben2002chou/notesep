@@ -10,7 +10,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from .occurrence_dual_hpss_separator import OccurrenceDualHPSSSeparator
-from notesep.models.pitch_relative_harmonic_gate import (
+from notesep.models.harmonic_gate import (
     gate_applies_to_target_and_prediction,
     pitch_relative_harmonic_gate,
 )

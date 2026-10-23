@@ -1,10 +1,13 @@
 """Measure additive waveform reconstruction; this is not a score-quality check."""
+
 from __future__ import annotations
 
 import numpy as np
 
 
-def separated_coverage(mixture: np.ndarray, note_bank: np.ndarray, rate: int = 16000) -> dict:
+def separated_coverage(
+    mixture: np.ndarray, note_bank: np.ndarray, rate: int = 16000
+) -> dict:
     """Report substantial audible reconstruction gaps without altering audio.
 
     A small mixture residual does not establish correct note ownership or pitch;
@@ -30,13 +33,27 @@ def separated_coverage(mixture: np.ndarray, note_bank: np.ndarray, rate: int = 1
         difference = residual[first:last]
         original_energy = float(np.dot(original, original))
         original_rms = np.sqrt(original_energy / (last - first))
-        absent = original_rms >= audible_floor and float(np.dot(difference, difference)) / max(original_energy, 1e-20) > 0.5
+        absent = (
+            original_rms >= audible_floor
+            and float(np.dot(difference, difference)) / max(original_energy, 1e-20)
+            > 0.5
+        )
         if absent and active_start is None:
             active_start = first
         if not absent and active_start is not None:
             if first - active_start >= rate * 0.2:
-                missing.append({"start": round(active_start / rate, 2), "end": round(first / rate, 2)})
+                missing.append(
+                    {
+                        "start": round(active_start / rate, 2),
+                        "end": round(first / rate, 2),
+                    }
+                )
             active_start = None
     if active_start is not None and len(source) - active_start >= rate * 0.2:
-        missing.append({"start": round(active_start / rate, 2), "end": round(len(source) / rate, 2)})
+        missing.append(
+            {
+                "start": round(active_start / rate, 2),
+                "end": round(len(source) / rate, 2),
+            }
+        )
     return {"errorEnergyPct": round(error_pct, 2), "uncoveredRegions": missing}

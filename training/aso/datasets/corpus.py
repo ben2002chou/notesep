@@ -93,14 +93,9 @@ class FrozenV13Contract:
     def load(cls, frozen_path: str | Path) -> "FrozenV13Contract":
         path = Path(frozen_path).expanduser().resolve()
         if path.name != "FROZEN.json":
-            raise ValueError(
-                "--frozen-manifest must explicitly name FROZEN.json"
-            )
+            raise ValueError("--frozen-manifest must explicitly name FROZEN.json")
         freeze = _load_object(path)
-        if (
-            freeze.get("schema") != FREEZE_SCHEMA
-            or freeze.get("status") != "passed"
-        ):
+        if freeze.get("schema") != FREEZE_SCHEMA or freeze.get("status") != "passed":
             raise ValueError(f"V13 corpus is not frozen and passed: {path}")
         if int(freeze.get("pairs", -1)) != EXPECTED_PAIRS:
             raise ValueError(
@@ -121,10 +116,7 @@ class FrozenV13Contract:
             root, str(freeze.get("packed_roots_manifest", ""))
         )
         packed_hash = str(freeze.get("packed_roots_manifest_sha256", ""))
-        if (
-            not packed_manifest.is_file()
-            or sha256_file(packed_manifest) != packed_hash
-        ):
+        if not packed_manifest.is_file() or sha256_file(packed_manifest) != packed_hash:
             raise ValueError("V13 packed-roots manifest is absent or changed")
         packed_roots: set[Path] = set()
         for line in packed_manifest.read_text(encoding="utf-8").splitlines():
@@ -173,22 +165,16 @@ class FrozenV13Contract:
                 if metadata.get(key) != value
             }
             if mismatches:
-                raise ValueError(
-                    f"Invalid {split} split metadata: {mismatches}"
-                )
+                raise ValueError(f"Invalid {split} split metadata: {mismatches}")
             count = int(metadata.get("pairs", -1))
-            if count < 1 or (
-                declared_pairs is not None and count != declared_pairs
-            ):
+            if count < 1 or (declared_pairs is not None and count != declared_pairs):
                 raise ValueError(f"Invalid {split} split pair count")
             uri = f"file:{quote(str(split_path))}?mode=ro&immutable=1"
             try:
                 with sqlite3.connect(uri, uri=True) as connection:
                     columns = {
                         str(row[1])
-                        for row in connection.execute(
-                            "PRAGMA table_info(pairs)"
-                        )
+                        for row in connection.execute("PRAGMA table_info(pairs)")
                     }
                     required = {
                         "ordinal",
@@ -256,9 +242,7 @@ class FrozenV13Contract:
                 observed_family_counts != family_counts
                 or sum(family_counts.values()) != count
             ):
-                raise ValueError(
-                    f"{split} split family counts are inconsistent"
-                )
+                raise ValueError(f"{split} split family counts are inconsistent")
             for label, metadata_key, observed_counts in (
                 (
                     "source-group",
@@ -270,28 +254,21 @@ class FrozenV13Contract:
             ):
                 declared_counts = metadata.get(metadata_key)
                 if not isinstance(declared_counts, dict):
-                    raise ValueError(
-                        f"{split} split metadata lacks {metadata_key}"
-                    )
+                    raise ValueError(f"{split} split metadata lacks {metadata_key}")
                 normalized_counts = {
-                    str(key): int(value)
-                    for key, value in declared_counts.items()
+                    str(key): int(value) for key, value in declared_counts.items()
                 }
                 if (
                     normalized_counts != observed_counts
                     or sum(normalized_counts.values()) != count
                 ):
-                    raise ValueError(
-                        f"{split} split {label} counts are inconsistent"
-                    )
+                    raise ValueError(f"{split} split {label} counts are inconsistent")
             split_paths[split] = split_path
             split_hashes[split] = split_hash
             split_pairs[split] = count
             split_family_counts[split] = family_counts
         if split_pairs.get("train") != EXPECTED_PAIRS:
-            raise ValueError(
-                "Training split index does not cover exactly 2M pairs"
-            )
+            raise ValueError("Training split index does not cover exactly 2M pairs")
         return cls(
             frozen_path=path,
             frozen_sha256=sha256_file(path),
@@ -320,9 +297,7 @@ class FrozenV13Contract:
             "split_pairs": dict(self.split_pairs),
         }
 
-    def load_family_ordinals(
-        self, split: str = "train"
-    ) -> dict[str, np.ndarray]:
+    def load_family_ordinals(self, split: str = "train") -> dict[str, np.ndarray]:
         """Load the opt-in family lookup using one bounded int32 array per family."""
         if split not in self.split_paths:
             raise ValueError(f"Unsupported V13 split: {split}")
@@ -330,9 +305,7 @@ class FrozenV13Contract:
         uri = f"file:{quote(str(path))}?mode=ro&immutable=1"
         output: dict[str, np.ndarray] = {}
         with sqlite3.connect(uri, uri=True) as connection:
-            for family, expected in sorted(
-                self.split_family_counts[split].items()
-            ):
+            for family, expected in sorted(self.split_family_counts[split].items()):
                 values = np.fromiter(
                     (
                         int(row[0])
@@ -346,9 +319,7 @@ class FrozenV13Contract:
                     count=int(expected),
                 )
                 if len(values) != int(expected):
-                    raise ValueError(
-                        f"Family ordinal count changed for {family!r}"
-                    )
+                    raise ValueError(f"Family ordinal count changed for {family!r}")
                 values.setflags(write=False)
                 output[family] = values
         if sum(map(len, output.values())) != self.split_pairs[split]:

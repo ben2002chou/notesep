@@ -16,7 +16,7 @@ import torch
 from torch.utils.data import Dataset
 
 from .corpus import FrozenV13Contract, _bound_path
-from .packed_blob_shards import PackedBlobShardReader
+from .shards import PackedBlobShardReader
 
 
 class V13StreamingResidualDataset(Dataset[dict[str, Any]]):
@@ -59,9 +59,7 @@ class V13StreamingResidualDataset(Dataset[dict[str, Any]]):
         if self.acoustic_release_samples is not None:
             values = np.asarray(self.acoustic_release_samples)
             if values.shape != (len(self),) or np.any(values < 0):
-                raise ValueError(
-                    "Acoustic release index does not align with the split"
-                )
+                raise ValueError("Acoustic release index does not align with the split")
         self._pid = os.getpid()
         self._connection: sqlite3.Connection | None = None
         self._readers: OrderedDict[Path, PackedBlobShardReader] = OrderedDict()
@@ -113,22 +111,14 @@ class V13StreamingResidualDataset(Dataset[dict[str, Any]]):
             raise ValueError("Target note has invalid bounds")
         if offset - onset > fixed:
             choices = (onset, (onset + offset - fixed) // 2, offset - fixed)
-            digest = hashlib.sha256(
-                str(metadata.get("pair_id", "")).encode()
-            ).digest()
+            digest = hashlib.sha256(str(metadata.get("pair_id", "")).encode()).digest()
             return max(0, min(choices[digest[0] % len(choices)], total - fixed))
         minimum = max(0, offset - fixed)
         maximum = min(onset, total - fixed)
         if minimum > maximum:
-            raise ValueError(
-                "No fixed window contains the complete target note"
-            )
-        digest = hashlib.sha256(
-            str(metadata.get("pair_id", "")).encode()
-        ).digest()
-        return minimum + int.from_bytes(digest[:8], "little") % (
-            maximum - minimum + 1
-        )
+            raise ValueError("No fixed window contains the complete target note")
+        digest = hashlib.sha256(str(metadata.get("pair_id", "")).encode()).digest()
+        return minimum + int.from_bytes(digest[:8], "little") % (maximum - minimum + 1)
 
     def _variable_window(
         self,
@@ -204,9 +194,7 @@ class V13StreamingResidualDataset(Dataset[dict[str, Any]]):
         dna_record = reader.record(pair_id, "dna_f32")
         mixture_record = reader.record(mixture_id, "mixture_f32")
         context_sum_record = reader.record(mixture_id, "dna_context_sum_f32")
-        context_residual_record = reader.record(
-            mixture_id, "dna_context_residual_f32"
-        )
+        context_residual_record = reader.record(mixture_id, "dna_context_residual_f32")
         metadata = target_record.metadata
         if dna_record.metadata != metadata:
             raise ValueError(f"Target/DNA metadata mismatch: {pair_id}")
@@ -221,9 +209,7 @@ class V13StreamingResidualDataset(Dataset[dict[str, Any]]):
             context_sum_record.metadata == mixture_metadata
             and context_residual_record.metadata == mixture_metadata
             and bool(mixture_metadata.get("complete_dna_context_sum", False))
-            and bool(
-                mixture_metadata.get("complete_dna_context_residual", False)
-            )
+            and bool(mixture_metadata.get("complete_dna_context_residual", False))
         ):
             raise ValueError(f"Incomplete DNA mixture context: {mixture_id}")
         sample_rate = int(metadata.get("sample_rate", 0))
@@ -251,9 +237,7 @@ class V13StreamingResidualDataset(Dataset[dict[str, Any]]):
                 acoustic_release_samples=acoustic_release,
             )
             if window_samples > requested_samples:
-                raise ValueError(
-                    "Duration index understates the required note window"
-                )
+                raise ValueError("Duration index understates the required note window")
         elif self.preserve_complete_note or self.fixed_samples == 0:
             start, window_samples = self._variable_window(
                 metadata, total, acoustic_release_samples=acoustic_release

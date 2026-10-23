@@ -20,9 +20,7 @@ def validate_resume_contract(current, recorded):
                     or len(checksum) != 64
                     or any(c not in "0123456789abcdef" for c in checksum)
                 ):
-                    raise ValueError(
-                        "Cannot relocate unbound resume input: " + name
-                    )
+                    raise ValueError("Cannot relocate unbound resume input: " + name)
             value.pop(name, None)
     if left != right:
         raise ValueError("Resume scientific contract mismatch")

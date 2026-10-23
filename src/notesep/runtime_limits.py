@@ -1,10 +1,13 @@
 """Helpers for reserving realistic, score-sized ZeroGPU inference slots."""
+
 from __future__ import annotations
 
 import json
 
 
-def separation_gpu_duration(session: str, notes_json: str, apply_aso: bool = True) -> int:
+def separation_gpu_duration(
+    session: str, notes_json: str, apply_aso: bool = True
+) -> int:
     """Estimate a per-call GPU maximum from the requested note-bank size.
 
     The measured 12 s, 24-note workload completed in under 19 s. The

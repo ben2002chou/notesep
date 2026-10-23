@@ -23,26 +23,21 @@ def sha(path):
 
 
 def differences(actual, expected, path=""):
-    if isinstance(actual, dict) and isinstance(expected, dict):
-        return [
-            item
-            for key in sorted(set(actual) | set(expected))
-            for item in (
-                [
-                    {
-                        "path": path + "/" + key,
-                        "missing": (
-                            "actual" if key not in actual else "expected"
-                        ),
-                    }
-                ]
-                if key not in actual or key not in expected
-                else differences(actual[key], expected[key], path + "/" + key)
-            )
-        ]
-    if actual != expected:
+    """List changed or missing settings, including their nested dictionary paths."""
+    if not isinstance(actual, dict) or not isinstance(expected, dict):
+        if actual == expected:
+            return []
         return [{"path": path, "actual": actual, "expected": expected}]
-    return []
+
+    changes = []
+    for key in sorted(set(actual) | set(expected)):
+        location = path + "/" + key
+        if key not in actual or key not in expected:
+            missing = "actual" if key not in actual else "expected"
+            changes.append({"path": location, "missing": missing})
+        else:
+            changes.extend(differences(actual[key], expected[key], location))
+    return changes
 
 
 def main():
@@ -72,9 +67,7 @@ def main():
         OCCURRENCE_SELECTIVE_SOURCE_ROOT=str(MODELS / "gating"),
         OCCURRENCE_FACTORIAL_SOURCE_ROOT=str(MODELS / "separator"),
         OCCURRENCE_FULL_SCORE_INDEX=str(relocated(gate["score_index"])),
-        REAL_EXAMPLE_FRACTION=str(
-            contract["arguments"]["real_example_fraction"]
-        ),
+        REAL_EXAMPLE_FRACTION=str(contract["arguments"]["real_example_fraction"]),
         MAX_STEPS=str(contract["arguments"]["max_steps"]),
         SCNS_MINIMUM_REAL_EXAMPLE_FRACTION=str(
             contract["arguments"]["real_example_fraction"]
@@ -83,16 +76,14 @@ def main():
             contract["arguments"]["real_example_fraction"]
         ),
         SCNS_V3_COMBINED_INSTRUMENT_COVERAGE_AUTHORITY=str(
-            relocated(
-                contract["sampler_contract"]["aggregate_16_coverage_authority"]
-            )
+            relocated(contract["sampler_contract"]["aggregate_16_coverage_authority"])
         ),
     )
     sys.path.insert(0, str(DATA / "scripts"))
     import parent_balanced_training as entry
 
-    base = entry.cropped.v2.trackbound.v1.base
-    selective = entry.cropped.v2.trackbound.v1.selective
+    base = entry.trainer
+    selective = entry.selective
     # Historical JSON serializes argparse Path values as strings.
     arguments = dict(contract["arguments"])
     for key in [
@@ -132,9 +123,7 @@ def main():
     resolved = {
         "sampler": inspect.getsourcefile(base.DeterministicMixedBatchSampler),
         "gate": inspect.getsourcefile(selective.lower_member_exact_octave_gate),
-        "augmentation": inspect.getsourcefile(
-            selective.apply_occurrence_augmentation
-        ),
+        "augmentation": inspect.getsourcefile(selective.apply_occurrence_augmentation),
         "base": base.__file__,
         "selective": selective.__file__,
     }
@@ -142,9 +131,7 @@ def main():
     for name in resolved.values():
         source = Path(name).resolve()
         if not any(source.is_relative_to(root) for root in component_roots):
-            raise ValueError(
-                "Runtime dependency outside NoteGrab code: " + name
-            )
+            raise ValueError("Runtime dependency outside NoteGrab code: " + name)
     passed = not any(comparison.values())
     report = {
         "status": "passed" if passed else "contract_mismatch",

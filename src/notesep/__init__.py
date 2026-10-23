@@ -1,4 +1,5 @@
 """Separate score queries into aligned, individually editable note estimates."""
+
 from .api import NoteBank, NoteSep
 
 __all__ = ["NoteBank", "NoteSep"]

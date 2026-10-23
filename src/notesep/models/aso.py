@@ -6,7 +6,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from .temporal_hybrid_set_ownership import (
+from .ownership import (
     TemporalHybridOwnershipConfig,
     TemporalHybridSetOwnership,
 )

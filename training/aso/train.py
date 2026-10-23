@@ -18,22 +18,22 @@ from typing import Any
 import numpy as np
 import torch
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "src"), str(ROOT), str(ROOT / "scripts")]
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-import aso_data as scaled  # noqa: E402
-import aso_engine as engine  # noqa: E402
-from model_exp.fresh_source_complete_data import (  # noqa: E402
+from training.aso import dataset  # noqa: E402
+from training.aso import engine  # noqa: E402
+from training.aso.datasets.synthetic import (  # noqa: E402
     FreshSourceCompleteDataset,
 )
-from model_exp.recorded_natural_score_scene_data import (  # noqa: E402
+from training.aso.datasets.recorded import (  # noqa: E402
     RecordedNaturalScoreSceneDataset,
 )
 
-from model_exp.acoustic_multiplicative_temporal_ownership import (  # noqa: E402
+from notesep.models.aso import (  # noqa: E402
     AcousticMultiplicativeTemporalOwnership,
 )
-from model_exp.temporal_hybrid_set_ownership import (  # noqa: E402
+from notesep.models.ownership import (  # noqa: E402
     TemporalHybridOwnershipConfig,
     TemporalHybridSetOwnership,
 )
@@ -41,15 +41,11 @@ from notesep.training_paths import configure  # noqa: E402
 from notesep.training_resume import validate_resume_contract  # noqa: E402
 
 SEED = 20260909
-FRESH_SHA256 = (
-    "202391feb2dc99ef94d28181783f325022de546733004011a9a7a68556e0c958"
-)
+FRESH_SHA256 = "202391feb2dc99ef94d28181783f325022de546733004011a9a7a68556e0c958"
 FRESH_AUTHORITY_SHA256 = (
     "711659391e8f93849e0f2595061003fed584fef47d54526684e92a595ed203eb"
 )
-RECORDED_SHA256 = (
-    "24c30535b171b19a6ce06b29d886aece2f1cd65d7828f4f719c928df5ea534c7"
-)
+RECORDED_SHA256 = "24c30535b171b19a6ce06b29d886aece2f1cd65d7828f4f719c928df5ea534c7"
 PROPOSAL_VALIDATION_SHA256 = (
     "7070a58fb977c14eb8fd1139cf300f848d39373bb460c74db49afe9e0c64cb82"
 )
@@ -70,23 +66,20 @@ def request_stop(_signum: int, _frame: object) -> None:
     STOP = True
 
 
-class AcousticAuthorities(scaled.Authorities):
+class AcousticAuthorities(dataset.Authorities):
     """Source-complete train/dev authority with measured endpoints retained."""
 
     def __init__(
         self,
         fresh_index: Path,
         recorded_root: Path,
-        cache: scaled.ProposalCache,
+        cache: dataset.ProposalCache,
     ) -> None:
         for path in (fresh_index, recorded_root, cache.root):
-            scaled.forbid_test_path(path)
+            dataset.forbid_test_path(path)
         if sha256(fresh_index) != FRESH_SHA256:
             raise ValueError("corrected fresh index hash mismatch")
-        if (
-            sha256(fresh_index.parent / "AUTHORITY.json")
-            != FRESH_AUTHORITY_SHA256
-        ):
+        if sha256(fresh_index.parent / "AUTHORITY.json") != FRESH_AUTHORITY_SHA256:
             raise ValueError("corrected acoustic authority hash mismatch")
         if sha256(recorded_root / "FROZEN.json") != RECORDED_SHA256:
             raise ValueError("recorded authority hash mismatch")
@@ -103,9 +96,7 @@ class AcousticAuthorities(scaled.Authorities):
             for split in ("train", "validation")
         }
         self.recorded = {
-            split: RecordedNaturalScoreSceneDataset(
-                [recorded_root], split=split
-            )
+            split: RecordedNaturalScoreSceneDataset([recorded_root], split=split)
             for split in ("train", "validation")
         }
 
@@ -136,8 +127,8 @@ def shuffled_call(model: TemporalHybridSetOwnership, record: dict[str, Any]):
 
 def raw_protected_objective(candidate_spec: torch.Tensor, record: dict):
     """The existing SI-regret loss, protecting the better input proposal."""
-    estimate = scaled.istft(candidate_spec[0], record["length"]).float()
-    magnitude = scaled.istft(record["base"], record["length"]).float()
+    estimate = dataset.istft(candidate_spec[0], record["length"]).float()
+    magnitude = dataset.istft(record["base"], record["length"]).float()
     raw = record["raw_wave"].float()
     valid = engine.supervised_nonsilent(record)
     target = record["targets_wave"].float()[valid]
@@ -160,9 +151,9 @@ def raw_protected_objective(candidate_spec: torch.Tensor, record: dict):
         "raw_reference_selected_fraction": (raw_log_d < magnitude_log_d)
         .to(loss.dtype)
         .mean(),
-        "silent_targets_excluded": (
-            record["query_valid"].sum() - valid.sum()
-        ).to(dtype=loss.dtype),
+        "silent_targets_excluded": (record["query_valid"].sum() - valid.sum()).to(
+            dtype=loss.dtype
+        ),
     }
 
 
@@ -212,14 +203,11 @@ def main() -> int:
         args.proposal_root,
         args.output,
     ):
-        scaled.forbid_test_path(path)
+        dataset.forbid_test_path(path)
     if args.output.exists() and not (args.output / "RESUME.pt").exists():
         raise FileExistsError(args.output)
     proposal_validation_sha256 = PROPOSAL_VALIDATION_SHA256
-    if (
-        sha256(args.proposal_root / "VALIDATION.json")
-        != proposal_validation_sha256
-    ):
+    if sha256(args.proposal_root / "VALIDATION.json") != proposal_validation_sha256:
         raise ValueError("proposal cache validation hash mismatch")
     args.output.mkdir(parents=True, exist_ok=True)
 
@@ -232,11 +220,9 @@ def main() -> int:
     torch.backends.cudnn.allow_tf32 = False
     device = torch.device("cuda")
 
-    scaled.FRESH_SHA = FRESH_SHA256
-    cache = scaled.ProposalCache(args.proposal_root)
-    authorities = AcousticAuthorities(
-        args.fresh_index, args.recorded_root, cache
-    )
+    dataset.FRESH_SHA = FRESH_SHA256
+    cache = dataset.ProposalCache(args.proposal_root)
+    authorities = AcousticAuthorities(args.fresh_index, args.recorded_root, cache)
     config = TemporalHybridOwnershipConfig(
         feature_set="essential6",
         phase_mode="mixture",
@@ -245,8 +231,7 @@ def main() -> int:
         magnitude_reference="mixture",
     )
     model, parent, _ = initialize(config, device)
-    engine.objective = raw_protected_objective
-    schedule, singleton_ids = scaled.make_schedule(authorities)
+    schedule, singleton_ids = dataset.make_schedule(authorities)
     maximum_mixtures = 0
 
     parity_kind, parity_index = next(
@@ -254,17 +239,13 @@ def main() -> int:
         for kind, index in schedule
         if len(authorities.record(kind, "train", index, device)["raw"]) >= 2
     )
-    parity_record = authorities.record(
-        parity_kind, "train", parity_index, device
-    )
+    parity_record = authorities.record(parity_kind, "train", parity_index, device)
     model.eval()
     parent.eval()
     with torch.no_grad():
         candidate_initial, _ = call(model, parity_record)
         parent_initial, _ = call(parent, parity_record)
-    initialization_parity = float(
-        (candidate_initial - parent_initial).abs().amax()
-    )
+    initialization_parity = float((candidate_initial - parent_initial).abs().amax())
     if initialization_parity > 2e-6:
         raise ValueError(
             f"matched initialization parity failed: {initialization_parity}"
@@ -286,9 +267,7 @@ def main() -> int:
         "fresh_index": str(args.fresh_index.resolve()),
         "fresh_index_sha256": FRESH_SHA256,
         "fresh_authority_sha256": FRESH_AUTHORITY_SHA256,
-        "recorded_authority": str(
-            (args.recorded_root / "FROZEN.json").resolve()
-        ),
+        "recorded_authority": str((args.recorded_root / "FROZEN.json").resolve()),
         "recorded_authority_sha256": RECORDED_SHA256,
         "proposal_root": str(args.proposal_root.resolve()),
         "proposal_validation_sha256": proposal_validation_sha256,
@@ -308,23 +287,16 @@ def main() -> int:
     }
     contract_path = args.output / "CONTRACT.json"
     if contract_path.exists():
-        recorded_contract = json.loads(
-            contract_path.read_text(encoding="utf-8")
-        )
+        recorded_contract = json.loads(contract_path.read_text(encoding="utf-8"))
         contract = validate_resume_contract(
             contract,
             recorded_contract,
         )
     else:
-        encoded = (
-            json.dumps(contract, indent=2, sort_keys=True, allow_nan=False)
-            + "\n"
-        )
+        encoded = json.dumps(contract, indent=2, sort_keys=True, allow_nan=False) + "\n"
         contract_path.write_text(encoded, encoding="utf-8")
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=1e-4, weight_decay=1e-4
-    )
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
     start = 0
     history: list[dict[str, Any]] = []
     resume = args.output / "RESUME.pt"
@@ -337,7 +309,6 @@ def main() -> int:
         start = int(payload["step"])
         history = list(payload["history"])
 
-    engine.call = call
     started = time.monotonic()
     try:
         for position in range(start, len(schedule)):
@@ -345,7 +316,9 @@ def main() -> int:
             record = authorities.record(kind, "train", index, device)
             model.train()
             optimizer.zero_grad(set_to_none=True)
-            loss, diagnostics = engine.train_loss(model, record)
+            loss, diagnostics = engine.train_loss(
+                model, record, forward=call, objective=raw_protected_objective
+            )
             if not bool(torch.isfinite(loss)):
                 raise ValueError("nonfinite training loss")
             loss.backward()
@@ -392,24 +365,21 @@ def main() -> int:
             if STOP:
                 return 75
 
-        engine.call = call
         development = engine.evaluate(
-            model, authorities, maximum_mixtures, parent=parent
+            model, authorities, maximum_mixtures, parent=parent, forward=call
         )
-        engine.call = shuffled_call
         shuffled = engine.evaluate(
-            model, authorities, maximum_mixtures, parent=None
+            model, authorities, maximum_mixtures, parent=None, forward=shuffled_call
         )
-        engine.call = call
         correct_by_id = {
             (row["dataset_kind"], row["mixture_id"], row["note"]): row
             for row in development["events"]
         }
         shuffled_delta = np.asarray(
             [
-                correct_by_id[
-                    (row["dataset_kind"], row["mixture_id"], row["note"])
-                ]["candidate"]["si_sdr_db"]
+                correct_by_id[(row["dataset_kind"], row["mixture_id"], row["note"])][
+                    "candidate"
+                ]["si_sdr_db"]
                 - row["candidate"]["si_sdr_db"]
                 for row in shuffled["events"]
             ]
@@ -421,9 +391,7 @@ def main() -> int:
             "shuffled_wins_gt_0p1db": int((shuffled_delta < -0.1).sum()),
         }
 
-        final_checkpoint = (
-            args.output / f"checkpoint-step-{len(schedule):06d}.pt"
-        )
+        final_checkpoint = args.output / f"checkpoint-step-{len(schedule):06d}.pt"
         gates = {
             "initialization_numerically_matched": initialization_parity <= 2e-6,
             "training_completed": bool(history)
@@ -462,9 +430,9 @@ def main() -> int:
                     "status": result["status"],
                     "arm": args.arm,
                     "coverage": development["coverage"],
-                    "median_si_sdr": development["summary"]["candidate"][
-                        "si_sdr_db"
-                    ]["median"],
+                    "median_si_sdr": development["summary"]["candidate"]["si_sdr_db"][
+                        "median"
+                    ],
                     "paired_median_vs_parent": development["comparisons"][
                         "candidate_minus_parent"
                     ]["median_db"],
@@ -479,7 +447,6 @@ def main() -> int:
         )
         return 0 if result["status"] == "passed" else 2
     finally:
-        engine.call = call
         authorities.close()
 
 

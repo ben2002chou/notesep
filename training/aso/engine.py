@@ -1,16 +1,14 @@
 """Shared loss, evaluation, and checkpoint helpers for the selected ASO recipe."""
+
 from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any
 import numpy as np
 import torch
-import aso_data as scaled
-from model_exp.temporal_hybrid_set_ownership import TemporalHybridSetOwnership
+from training.aso import dataset
+from notesep.models.ownership import TemporalHybridSetOwnership
 
-# Set by the selected trainer before calls to evaluate or train_loss.
-call = None
-objective = None
 ENERGY_FLOOR = 1e-8
 DISTORTION_FLOOR = 1e-4
 REGRET_MARGIN_DB = 0.10
@@ -39,16 +37,27 @@ def supervised_nonsilent(record: dict[str, Any]) -> torch.Tensor:
         raise ValueError("training scene contains no nonsilent target")
     return active
 
+
 def atomic_torch(path: Path, payload: dict[str, Any]) -> None:
     temporary = path.with_suffix(path.suffix + ".partial")
     torch.save(payload, temporary)
     os.replace(temporary, path)
 
-def train_loss(model: TemporalHybridSetOwnership, record: dict[str, Any]):
-    candidate_spec, diagnostics = call(model, record)
+
+def train_loss(
+    model: TemporalHybridSetOwnership, record: dict[str, Any], *, forward, objective
+):
+    """Combine waveform error, note ownership, and temporal smoothness.
+
+    The caller supplies the forward pass and waveform objective explicitly so
+    training and development checks do not change each other's module state.
+    """
+    candidate_spec, diagnostics = forward(model, record)
     waveform_risk, risk_diagnostics = objective(candidate_spec, record)
     target_magnitude = record["targets"].abs()
-    target_share = target_magnitude / target_magnitude.sum(0, keepdim=True).clamp_min(1e-8)
+    target_share = target_magnitude / target_magnitude.sum(0, keepdim=True).clamp_min(
+        1e-8
+    )
     energy = record["mixture"].abs().square()
     energy = energy / energy.sum().clamp_min(1e-12)
     ownership = diagnostics["ownership"][0].clamp_min(1e-8)
@@ -62,6 +71,7 @@ def train_loss(model: TemporalHybridSetOwnership, record: dict[str, Any]):
         **{f"risk_{key}": value for key, value in risk_diagnostics.items()},
     }
 
+
 def summarize(events: list[dict[str, Any]], method: str) -> dict[str, Any]:
     result = {
         metric: {
@@ -72,16 +82,22 @@ def summarize(events: list[dict[str, Any]], method: str) -> dict[str, Any]:
     }
     if "post_offset_energy_ratio" in events[0][method]:
         result["post_offset_energy_ratio"] = {
-            "median": float(np.median([row[method]["post_offset_energy_ratio"] for row in events])),
-            "mean": float(np.mean([row[method]["post_offset_energy_ratio"] for row in events])),
+            "median": float(
+                np.median([row[method]["post_offset_energy_ratio"] for row in events])
+            ),
+            "mean": float(
+                np.mean([row[method]["post_offset_energy_ratio"] for row in events])
+            ),
         }
     return result
 
-def compare(events: list[dict[str, Any]], candidate: str, baseline: str) -> dict[str, Any]:
-    delta = np.asarray([
-        row[candidate]["si_sdr_db"] - row[baseline]["si_sdr_db"]
-        for row in events
-    ])
+
+def compare(
+    events: list[dict[str, Any]], candidate: str, baseline: str
+) -> dict[str, Any]:
+    delta = np.asarray(
+        [row[candidate]["si_sdr_db"] - row[baseline]["si_sdr_db"] for row in events]
+    )
     return {
         "median_db": float(np.median(delta)),
         "mean_db": float(np.mean(delta)),
@@ -93,13 +109,17 @@ def compare(events: list[dict[str, Any]], candidate: str, baseline: str) -> dict
         "losses_gt_3db": int((delta < -3.0).sum()),
     }
 
+
 @torch.no_grad()
 def evaluate(
     model: TemporalHybridSetOwnership,
-    authorities: scaled.Authorities,
+    authorities: dataset.Authorities,
     maximum_mixtures: int,
     parent: TemporalHybridSetOwnership | None = None,
+    *,
+    forward,
 ) -> dict[str, Any]:
+    """Measure per-note separation quality over the development mixtures."""
     model.eval()
     if parent is not None:
         parent.eval()
@@ -139,24 +159,30 @@ def evaluate(
                 complex_closure_relative_value = 0.0
                 mean_complex_delta_value = 0.0
             else:
-                estimate, diagnostics = call(model, record)
+                estimate, diagnostics = forward(model, record)
                 closure_value = float(diagnostics["magnitude_closure_max_abs"])
                 complex_closure_value = float(
                     diagnostics.get(
                         "complex_closure_max_abs",
-                        diagnostics["magnitude_closure_max_abs"].new_tensor(float("nan")),
+                        diagnostics["magnitude_closure_max_abs"].new_tensor(
+                            float("nan")
+                        ),
                     )
                 )
                 magnitude_closure_relative_value = float(
                     diagnostics.get(
                         "magnitude_closure_max_relative",
-                        diagnostics["magnitude_closure_max_abs"].new_tensor(float("nan")),
+                        diagnostics["magnitude_closure_max_abs"].new_tensor(
+                            float("nan")
+                        ),
                     )
                 )
                 complex_closure_relative_value = float(
                     diagnostics.get(
                         "complex_closure_max_relative",
-                        diagnostics["magnitude_closure_max_abs"].new_tensor(float("nan")),
+                        diagnostics["magnitude_closure_max_abs"].new_tensor(
+                            float("nan")
+                        ),
                     )
                 )
                 mean_complex_delta_value = float(
@@ -176,32 +202,34 @@ def evaluate(
                         else record["base"][None]
                     )
                     if len(record["raw"]) == 1
-                    else call(parent, record)[0]
+                    else forward(parent, record)[0]
                 )
-            estimate_wave = scaled.istft(estimate[0], record["length"]).float()
+            estimate_wave = dataset.istft(estimate[0], record["length"]).float()
             parent_wave = (
-                scaled.istft(parent_estimate[0], record["length"]).float()
-                if parent_estimate is not None else None
+                dataset.istft(parent_estimate[0], record["length"]).float()
+                if parent_estimate is not None
+                else None
             )
-            base_wave = scaled.istft(record["base"], record["length"]).float()
+            base_wave = dataset.istft(record["base"], record["length"]).float()
             target_energy = record["targets_wave"].square().sum(-1)
             valid = record["query_valid"] & (target_energy > 1e-12)
             silent += int((record["query_valid"] & ~valid).sum())
             indices = torch.where(valid)[0]
             if not len(indices):
                 continue
-            raw_metrics = scaled.metrics(
+            raw_metrics = dataset.metrics(
                 record["targets_wave"][indices], record["raw_wave"][indices]
             )
-            candidate_metrics = scaled.metrics(
+            candidate_metrics = dataset.metrics(
                 record["targets_wave"][indices], estimate_wave[indices]
             )
-            base_metrics = scaled.metrics(
+            base_metrics = dataset.metrics(
                 record["targets_wave"][indices], base_wave[indices]
             )
             parent_metrics = (
-                scaled.metrics(record["targets_wave"][indices], parent_wave[indices])
-                if parent_wave is not None else None
+                dataset.metrics(record["targets_wave"][indices], parent_wave[indices])
+                if parent_wave is not None
+                else None
             )
             method_waves = {
                 "candidate": estimate_wave,
@@ -209,31 +237,47 @@ def evaluate(
                 "raw": record["raw_wave"],
                 **({"parent": parent_wave} if parent_wave is not None else {}),
             }
-            positions = torch.arange(record["length"], device=record["offsets"].device)[None]
+            positions = torch.arange(record["length"], device=record["offsets"].device)[
+                None
+            ]
             post_mask = positions >= record["offsets"][:, None]
-            target_energy_safe = record["targets_wave"].double().square().sum(-1).clamp_min(1e-12)
+            target_energy_safe = (
+                record["targets_wave"].double().square().sum(-1).clamp_min(1e-12)
+            )
             post_ratios = {
-                method: (wave.double().square() * post_mask).sum(-1) / target_energy_safe
+                method: (wave.double().square() * post_mask).sum(-1)
+                / target_energy_safe
                 for method, wave in method_waves.items()
             }
             for local_note, note in enumerate(indices.tolist()):
-                events.append({
-                    "dataset_kind": kind,
-                    "mixture_id": record["mixture_id"],
-                    "note": int(note),
-                    **{
-                        method: {
-                            **{key: float(metric[key][local_note]) for key in metric},
-                            "post_offset_energy_ratio": float(post_ratios[method][note]),
-                        }
-                        for method, metric in {
-                            "candidate": candidate_metrics,
-                            "magnitude": base_metrics,
-                            "raw": raw_metrics,
-                            **({"parent": parent_metrics} if parent_metrics is not None else {}),
-                        }.items()
-                    },
-                })
+                events.append(
+                    {
+                        "dataset_kind": kind,
+                        "mixture_id": record["mixture_id"],
+                        "note": int(note),
+                        **{
+                            method: {
+                                **{
+                                    key: float(metric[key][local_note])
+                                    for key in metric
+                                },
+                                "post_offset_energy_ratio": float(
+                                    post_ratios[method][note]
+                                ),
+                            }
+                            for method, metric in {
+                                "candidate": candidate_metrics,
+                                "magnitude": base_metrics,
+                                "raw": raw_metrics,
+                                **(
+                                    {"parent": parent_metrics}
+                                    if parent_metrics is not None
+                                    else {}
+                                ),
+                            }.items()
+                        },
+                    }
+                )
             closure = max(closure, closure_value)
             if np.isfinite(complex_closure_value):
                 complex_closure = max(complex_closure, complex_closure_value)
@@ -251,24 +295,27 @@ def evaluate(
                 )
     if not events:
         raise ValueError("empty development evaluation")
-    methods = ("candidate", "magnitude", "raw", "parent") if parent is not None else ("candidate", "magnitude", "raw")
+    methods = (
+        ("candidate", "magnitude", "raw", "parent")
+        if parent is not None
+        else ("candidate", "magnitude", "raw")
+    )
     comparisons = {
         "candidate_minus_magnitude": compare(events, "candidate", "magnitude"),
         "candidate_minus_raw": compare(events, "candidate", "raw"),
     }
     if parent is not None:
-        comparisons.update({
-            "candidate_minus_parent": compare(events, "candidate", "parent"),
-            "parent_minus_magnitude": compare(events, "parent", "magnitude"),
-            "parent_minus_raw": compare(events, "parent", "raw"),
-        })
+        comparisons.update(
+            {
+                "candidate_minus_parent": compare(events, "candidate", "parent"),
+                "parent_minus_magnitude": compare(events, "parent", "magnitude"),
+                "parent_minus_raw": compare(events, "parent", "raw"),
+            }
+        )
     return {
         "coverage": len(events),
         "silent_targets_excluded": silent,
-        "summary": {
-            method: summarize(events, method)
-            for method in methods
-        },
+        "summary": {method: summarize(events, method) for method in methods},
         "comparisons": comparisons,
         "maximum_magnitude_closure_abs": closure,
         "maximum_complex_closure_abs": complex_closure,

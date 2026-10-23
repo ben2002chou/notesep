@@ -24,8 +24,9 @@ The path map lets the training scripts find the data wherever you store it.
 
 ## Run NoteGrab
 
-NoteGrab starts from the model checkpoint saved at training step 250. Download
-that starting checkpoint:
+NoteGrab starts from the model checkpoint saved at training step 250. The recipe loads its weights and starts a new
+optimizer; it is a continuation recipe, rather than training from random
+initialization. Download that starting checkpoint:
 
 ```sh
 uv run python training/download_initial_checkpoint.py --output /path/to/checkpoints
@@ -53,6 +54,24 @@ uv run python train.py stage=aso run.dir=outputs/aso \
 
 Use `uv run python train.py --cfg job` to inspect the selected settings. Data
 files are checked against the manifests in the package.
+
+## Outputs and implementation
+
+NoteGrab writes `training/checkpoints/latest.pt` under `run.dir`, along with its
+resolved recipe and training log. ASO writes `RESUME.pt` for automatic resume,
+intermediate `checkpoint-step-*.pt` files, and development results under
+`run.dir`. Use a new output directory for each NoteGrab run.
+
+Start reading the code at `train.py` in the repository root. It selects one of
+the two launchers below. ASO's [implementation guide](aso/README.md) describes
+its dataset, loss, and training loop. NoteGrab's saved recipe is in
+`notegrab/training_contract.json`; `notegrab/environment.json` contains its
+numerical and sampling settings.
+
+NoteGrab's modules apply the sampling and crop steps in this order:
+`event_cluster_data` → `track_bound_sampling` → `library_balanced_sampling` →
+`target_cropped_training` → `parent_balanced_training`. These are composed into
+one trainer by the launcher. They are not separate training recipes.
 
 ## Files
 

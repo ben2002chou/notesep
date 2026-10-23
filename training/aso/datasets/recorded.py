@@ -15,15 +15,14 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, Sampler
 
-from .packed_blob_shards import PackedBlobShardReader
+from .shards import PackedBlobShardReader
 
 
 SCENE_KIND = "recorded_natural_score_exact_stems_v1"
 SCENE_KINDS_BY_FREEZE_SCHEMA = {
     "recorded_natural_score_scene_freeze_v1": SCENE_KIND,
     "recorded_paired_random_timing_freeze_v2": SCENE_KIND,
-    "cross_instrument_natural_score_exact_note_freeze_v1":
-        "cross_instrument_natural_score_exact_note_scene_v1",
+    "cross_instrument_natural_score_exact_note_freeze_v1": "cross_instrument_natural_score_exact_note_scene_v1",
 }
 FREEZE_SCHEMAS = {
     "recorded_natural_score_scene_freeze_v1",
@@ -80,7 +79,9 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
         self.row_to_scene_note: list[tuple[int, int]] = []
         comparison_lengths: dict[str, int] = {}
         for comparison_root in comparison_roots:
-            with PackedBlobShardReader(Path(comparison_root).expanduser().resolve()) as comparison:
+            with PackedBlobShardReader(
+                Path(comparison_root).expanduser().resolve()
+            ) as comparison:
                 for record in comparison.iter_records(SCENE_KIND):
                     metadata = record.metadata
                     if str(metadata["split"]) != split:
@@ -91,13 +92,18 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
         for root_index, root in enumerate(self.roots):
             freeze_path = root / "FROZEN.json"
             freeze = json.loads(freeze_path.read_text(encoding="utf-8"))
-            if freeze.get("schema") not in FREEZE_SCHEMAS or freeze.get("status") != "passed":
+            if (
+                freeze.get("schema") not in FREEZE_SCHEMAS
+                or freeze.get("status") != "passed"
+            ):
                 raise ValueError(f"scene root is not frozen-passed: {root}")
             record_kind = SCENE_KINDS_BY_FREEZE_SCHEMA[str(freeze["schema"])]
             manifest = dict(freeze["manifest"])
             if sha256_file(Path(manifest["path"]).resolve()) != str(manifest["sha256"]):
                 raise ValueError(f"scene manifest checksum mismatch: {root}")
-            if sha256_file(root / "manifest.sqlite") != str(freeze["packed_index"]["sha256"]):
+            if sha256_file(root / "manifest.sqlite") != str(
+                freeze["packed_index"]["sha256"]
+            ):
                 raise ValueError(f"packed index checksum mismatch: {root}")
             reader = PackedBlobShardReader(root)
             self.readers.append(reader)
@@ -114,7 +120,9 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
                 if identity in seen_scene_ids:
                     raise ValueError(f"duplicate scene identity: {identity}")
                 seen_scene_ids.add(identity)
-                canonical_key = str(metadata.get("paired_parent_scene_id", record.sample_id))
+                canonical_key = str(
+                    metadata.get("paired_parent_scene_id", record.sample_id)
+                )
                 common_samples = max(
                     int(metadata["num_samples"]),
                     int(comparison_lengths.get(canonical_key, metadata["num_samples"])),
@@ -139,9 +147,14 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
             first_row = len(self.row_to_scene_note)
             rebuilt.append(
                 SceneRef(
-                    scene.root_index, scene.scene_id, scene.record_kind,
-                    scene.split, scene.k,
-                    first_row, scene.samples, scene.canonical_key,
+                    scene.root_index,
+                    scene.scene_id,
+                    scene.record_kind,
+                    scene.split,
+                    scene.k,
+                    first_row,
+                    scene.samples,
+                    scene.canonical_key,
                 )
             )
             self.row_to_scene_note.extend(
@@ -175,11 +188,20 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
         if stems.shape != (scene.k, native_samples) or not np.isfinite(stems).all():
             raise ValueError(f"invalid stems: {scene.scene_id}")
         native_mixture = np.sum(stems, axis=0, dtype=np.float32)
-        if hashlib.sha256(np.ascontiguousarray(native_mixture).tobytes()).hexdigest() != metadata["mixture_sha256"]:
-            raise ValueError(f"native mixture closure checksum mismatch: {scene.scene_id}")
+        if (
+            hashlib.sha256(np.ascontiguousarray(native_mixture).tobytes()).hexdigest()
+            != metadata["mixture_sha256"]
+        ):
+            raise ValueError(
+                f"native mixture closure checksum mismatch: {scene.scene_id}"
+            )
         if scene.samples > native_samples:
             stems = np.pad(stems, ((0, 0), (0, scene.samples - native_samples)))
-        self._cached_key, self._cached_stems, self._cached_metadata = key, stems, metadata
+        self._cached_key, self._cached_stems, self._cached_metadata = (
+            key,
+            stems,
+            metadata,
+        )
         return stems, metadata
 
     def __getitem__(self, index: int) -> dict[str, Any]:
@@ -218,9 +240,13 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
         note_onset_seconds = note.get("onset_seconds", note.get("midi_onset_seconds"))
         if note_onset_seconds is None:
             raise ValueError(f"target event has no onset: {scene.scene_id}")
-        source_parent_id = note.get("source_parent_id", metadata.get("source_parent_id"))
+        source_parent_id = note.get(
+            "source_parent_id", metadata.get("source_parent_id")
+        )
         instrument = note.get("recorded_instrument", metadata.get("instrument"))
-        score_parent_id = metadata.get("score_parent_id", metadata.get("score_piece_parent_id"))
+        score_parent_id = metadata.get(
+            "score_parent_id", metadata.get("score_piece_parent_id")
+        )
         if source_parent_id is None or instrument is None or score_parent_id is None:
             raise ValueError(f"target event lacks source identity: {scene.scene_id}")
         return {
@@ -234,9 +260,17 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
             "unassigned_residual": zero.clone(),
             "pitch": torch.tensor(int(note["rendered_pitch"]), dtype=torch.long),
             "valid_samples": torch.tensor(len(mixture), dtype=torch.long),
-            "note_onset_samples": torch.tensor(round(float(note_onset_seconds) * sample_rate), dtype=torch.long),
-            "note_offset_samples": torch.tensor(round(float(note["acoustic_offset_seconds"]) * sample_rate), dtype=torch.long),
-            "midi_offset_samples": torch.tensor(round(float(note["midi_offset_seconds"]) * sample_rate), dtype=torch.long),
+            "note_onset_samples": torch.tensor(
+                round(float(note_onset_seconds) * sample_rate), dtype=torch.long
+            ),
+            "note_offset_samples": torch.tensor(
+                round(float(note["acoustic_offset_seconds"]) * sample_rate),
+                dtype=torch.long,
+            ),
+            "midi_offset_samples": torch.tensor(
+                round(float(note["midi_offset_seconds"]) * sample_rate),
+                dtype=torch.long,
+            ),
             "ordinal": torch.tensor(-(int(index) + 1), dtype=torch.long),
             "hard_case": torch.tensor(1, dtype=torch.long),
             "pair_id": f"recorded-scene::{scene.scene_id}::note-{note_index:02d}",
@@ -259,7 +293,10 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
         }
 
     def scene_batch_indices(self) -> list[list[int]]:
-        return [list(range(scene.first_row, scene.first_row + scene.k)) for scene in self.scenes]
+        return [
+            list(range(scene.first_row, scene.first_row + scene.k))
+            for scene in self.scenes
+        ]
 
     def close(self) -> None:
         for reader in self.readers:
@@ -267,7 +304,9 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
 
 
 class CompleteSceneBatchSampler(Sampler[list[int]]):
-    def __init__(self, dataset: RecordedNaturalScoreSceneDataset, *, shuffle: bool, seed: int = 0) -> None:
+    def __init__(
+        self, dataset: RecordedNaturalScoreSceneDataset, *, shuffle: bool, seed: int = 0
+    ) -> None:
         self.dataset = dataset
         self.shuffle = bool(shuffle)
         self.seed = int(seed)
@@ -298,8 +337,12 @@ def collate_complete_scene_rows(rows: Sequence[dict[str, Any]]) -> dict[str, Any
         "mixture": mixture,
         "targets": targets,
         "pitches": torch.stack([row["pitch"] for row in ordered]),
-        "note_onset_samples": torch.stack([row["note_onset_samples"] for row in ordered]),
-        "note_offset_samples": torch.stack([row["note_offset_samples"] for row in ordered]),
+        "note_onset_samples": torch.stack(
+            [row["note_onset_samples"] for row in ordered]
+        ),
+        "note_offset_samples": torch.stack(
+            [row["note_offset_samples"] for row in ordered]
+        ),
         "valid_samples": ordered[0]["valid_samples"],
         "scene_id": ordered[0]["scene_id"],
         "all_score_events": ordered[0]["all_score_events"],
@@ -319,7 +362,7 @@ def collate_selective_scene_rows(
     """Flatten one complete scene into the frozen selective batch contract."""
 
     collate_complete_scene_rows(rows)  # structural and exact-closure audit
-    from .occurrence_full_score_data import collate_full_score
+    from .score import collate_full_score
 
     return collate_full_score(list(rows), base_collate)
 
@@ -327,7 +370,9 @@ def collate_selective_scene_rows(
 class CompositeSyntheticSceneDataset(Dataset[dict[str, Any]]):
     """Dispatch tagged indices to a synthetic dataset or complete-scene rows."""
 
-    def __init__(self, synthetic: Dataset[Any], scenes: RecordedNaturalScoreSceneDataset) -> None:
+    def __init__(
+        self, synthetic: Dataset[Any], scenes: RecordedNaturalScoreSceneDataset
+    ) -> None:
         self.synthetic = synthetic
         self.scenes = scenes
 
@@ -340,7 +385,11 @@ class CompositeSyntheticSceneDataset(Dataset[dict[str, Any]]):
 
         output = dict(row)
         waveform_keys = (
-            "mixture", "target", "dna", "other_dna", "unassigned_residual",
+            "mixture",
+            "target",
+            "dna",
+            "other_dna",
+            "unassigned_residual",
         )
         for key in waveform_keys:
             value = output[key]
@@ -415,7 +464,9 @@ class CompleteSceneReplacementSampler(Sampler[list[Any]]):
         return len(self.base_sampler)  # type: ignore[arg-type]
 
     def _rank(self, key: str) -> int:
-        return int.from_bytes(hashlib.sha256(f"{self.seed}:{key}".encode()).digest()[:8], "little")
+        return int.from_bytes(
+            hashlib.sha256(f"{self.seed}:{key}".encode()).digest()[:8], "little"
+        )
 
     def _uniform(self, key: str) -> float:
         return self._rank(key) / float(2**64)
@@ -451,7 +502,9 @@ class CompleteSceneReplacementSampler(Sampler[list[Any]]):
                             f"scene:{step}:{cursor + block_offset}:{value}"
                         ),
                     )
-                    eligible = [value for value in ranked if value not in prospective_used]
+                    eligible = [
+                        value for value in ranked if value not in prospective_used
+                    ]
                     if not eligible:
                         block = []
                         break
@@ -466,10 +519,7 @@ class CompleteSceneReplacementSampler(Sampler[list[Any]]):
                     ].samples
                     for value in output
                 ]
-                block_lengths = [
-                    self.scenes.scenes[value].samples
-                    for value in block
-                ]
+                block_lengths = [self.scenes.scenes[value].samples for value in block]
                 padded_cost = max(existing_lengths + block_lengths) * (
                     len(output) + block_rows
                 )
@@ -504,5 +554,7 @@ class CompleteSceneReplacementSampler(Sampler[list[Any]]):
                     for value in output
                 )
                 if present not in {0, scene.k}:
-                    raise RuntimeError("recorded optimizer step contains a partial scene")
+                    raise RuntimeError(
+                        "recorded optimizer step contains a partial scene"
+                    )
             yield output

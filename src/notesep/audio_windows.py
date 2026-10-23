@@ -1,4 +1,5 @@
 """Read one bounded edit window from a source recording."""
+
 from __future__ import annotations
 
 import math
@@ -15,14 +16,26 @@ MAX_WINDOW_SECONDS = 12.0
 MAX_SOURCE_SECONDS = 300.0
 
 
-def decode_audio_window(path: Path, start_seconds: float, window_seconds: float) -> tuple[np.ndarray, float, float]:
+def decode_audio_window(
+    path: Path, start_seconds: float, window_seconds: float
+) -> tuple[np.ndarray, float, float]:
     """Decode/resample only the requested region; return audio, actual start, source duration."""
-    if any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
-           for value in (start_seconds, window_seconds)):
+    if any(
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        for value in (start_seconds, window_seconds)
+    ):
         raise ValueError("Choose a valid edit-window start and length")
     start_seconds, window_seconds = float(start_seconds), float(window_seconds)
-    if start_seconds < 0 or window_seconds < MIN_WINDOW_SECONDS or window_seconds > MAX_WINDOW_SECONDS:
-        raise ValueError("Choose a window from 1.1 to 12 seconds, starting at or after 0 seconds")
+    if (
+        start_seconds < 0
+        or window_seconds < MIN_WINDOW_SECONDS
+        or window_seconds > MAX_WINDOW_SECONDS
+    ):
+        raise ValueError(
+            "Choose a window from 1.1 to 12 seconds, starting at or after 0 seconds"
+        )
 
     info = sf.info(path)
     source_duration = info.duration
@@ -36,7 +49,9 @@ def decode_audio_window(path: Path, start_seconds: float, window_seconds: float)
     frame_count = min(requested_frames, info.frames - first_frame)
     actual_duration = frame_count / info.samplerate
     if actual_duration < MIN_WINDOW_SECONDS:
-        raise ValueError("Move the edit window earlier so it contains at least 1.1 seconds")
+        raise ValueError(
+            "Move the edit window earlier so it contains at least 1.1 seconds"
+        )
 
     with sf.SoundFile(path) as source:
         # MP3 frames share a bit reservoir and decoder filter state. Seeking
@@ -45,10 +60,14 @@ def decode_audio_window(path: Path, start_seconds: float, window_seconds: float)
         # the window retains the same sample origin as a continuous decode.
         preroll = min(first_frame, info.samplerate) if info.format == "MP3" else 0
         source.seek(first_frame - preroll)
-        audio = source.read(frames=frame_count + preroll, dtype="float32", always_2d=True)[preroll:]
+        audio = source.read(
+            frames=frame_count + preroll, dtype="float32", always_2d=True
+        )[preroll:]
     audio = audio.mean(axis=1)
     if not np.isfinite(audio).all():
         raise ValueError("Audio contains non-finite samples")
     gcd = math.gcd(info.samplerate, RATE)
-    result = resample_poly(audio, RATE // gcd, info.samplerate // gcd).astype(np.float32)
+    result = resample_poly(audio, RATE // gcd, info.samplerate // gcd).astype(
+        np.float32
+    )
     return result, first_frame / info.samplerate, source_duration

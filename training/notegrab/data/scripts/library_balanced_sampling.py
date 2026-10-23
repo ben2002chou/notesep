@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SCNS-v3 neutral library sampler on the native track-bound scene loader."""
+"""Balance recorded source libraries while keeping instrument coverage."""
 
 from __future__ import annotations
 

@@ -7,9 +7,9 @@ from typing import Any
 import torch
 from torch import nn
 
-from notesep.models.dna_residual_tfc_tdf_unet import DNAResidualTFCTDFUNetConfig
-from notesep.models.occurrence_joint_tfc_tdf_separator import OccurrenceJointTFCTDFSeparator
-from notesep.models.pitch_relative_harmonic_gate import (
+from notesep.models.unet import DNAResidualTFCTDFUNetConfig
+from notesep.models.separator import OccurrenceJointTFCTDFSeparator
+from notesep.models.harmonic_gate import (
     SOFT_HARMONIC_COMB_FLOOR,
     SOFT_HARMONIC_COMB_SIGMA_CENTS,
     GATE_MODES,
