@@ -60,7 +60,7 @@ input must match its expected manifest and hashes.
 | File or folder | Purpose |
 | --- | --- |
 | `train_notegrab.py` | Launches the NoteGrab training recipe. |
-| `validate_notegrab.py` | Checks NoteGrab sources and saved recipe settings. |
+| `validate_notegrab.py` | Checks the saved NoteGrab recipe and runtime components. |
 | `stage_metadata.py` | Installs packed metadata while reading audio shards in place. |
 | `download_initial_checkpoint.py` | Downloads and verifies the NoteGrab starting checkpoint. |
 | `train_aso.py` | Validates ASO inputs and launches its training recipe. |

@@ -30,18 +30,7 @@ def main():
             "Full training requires a proposal cache validated for the full "
             "training schedule"
         )
-    source_manifest = json.loads(
-        (ROOT / "training/aso/source_manifest.json").read_text()
-    )
-    source = ROOT / source_manifest["source_root"]
-    for name, checksum in source_manifest["source_files_sha256"].items():
-        if hashlib.sha256((source / name).read_bytes()).hexdigest() != checksum:
-            raise ValueError("Training source identity mismatch: " + name)
-    for name, checksum in source_manifest["helper_sha256"].items():
-        if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != checksum:
-            raise ValueError(
-                "Training transport helper identity mismatch: " + name
-            )
+    source = ROOT / "training/aso"
     prereg = ROOT / settings["preregistration"]
     if (
         hashlib.sha256(prereg.read_bytes()).hexdigest()

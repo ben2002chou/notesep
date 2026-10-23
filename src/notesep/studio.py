@@ -4,7 +4,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import logging
 import os
 from pathlib import Path
 import re
@@ -44,29 +43,6 @@ LIFETIME = 3600
 MAX_OUTPUT_GENERATIONS = 3
 DEVICE = os.environ.get("NOTESEP_DEVICE", "cuda")
 PROFILE = model_profile()
-TRANSCRIBER = os.environ.get("NOTESEP_TRANSCRIBER", "yourmt3").strip().lower()
-ENABLE_LOCAL_AMT = TRANSCRIBER == 'muscriptor' or os.environ.get('NOTESEP_ENABLE_LOCAL_AMT') == '1'
-MUSCRIPTOR = None
-MUSCRIPTOR_ERROR = None
-MUSCRIPTOR_INSTRUMENTS = set()
-MUSCRIPTOR_IDENTITY = None
-
-if ENABLE_LOCAL_AMT:
-    # ZeroGPU requires CUDA model placement during module startup. Keep this
-    # behind an explicit Space variable so the normal YourMT3+ fallback does
-    # not download gated weights or reserve GPU time.
-    if not os.environ.get("HF_TOKEN") and not os.environ.get('NOTESEP_MUSCRIPTOR_MODEL_FILE'):
-        MUSCRIPTOR_ERROR = "The Space is missing its gated-model HF_TOKEN secret."
-    else:
-        try:
-            from notesep.local_transcription import load_muscriptor
-            from muscriptor.tokenizer.mt3 import MT3_FULL_PLUS_GROUP_NAMES
-
-            MUSCRIPTOR_INSTRUMENTS = set(MT3_FULL_PLUS_GROUP_NAMES)
-            MUSCRIPTOR, MUSCRIPTOR_IDENTITY = load_muscriptor(DEVICE)
-        except Exception as error:
-            logging.exception("MuScriptor failed to load")
-            MUSCRIPTOR_ERROR = f"MuScriptor could not load ({type(error).__name__})."
 
 # ZeroGPU stages this CUDA placement during startup; it is not a lazy transfer
 # inside the GPU function. Locally, NOTESEP_DEVICE=mps or cpu also works.
@@ -149,23 +125,17 @@ async def serving_source():
 @app.get("/notesep-config")
 async def public_config():
     """Expose only non-secret transcription settings needed by the UI."""
-    is_muscriptor = TRANSCRIBER == "muscriptor"
     providers = [
         {"id": "yourmt3", "label": "YourMT3+ · public"},
         {"id": "muscriptor_public", "label": "MuScriptor · public"},
     ]
-    if MUSCRIPTOR is not None:
-        providers.append({"id": "muscriptor_local", "label": "MuScriptor · on this Space"})
     return JSONResponse({
-        "provider": "MuScriptor" if is_muscriptor else "YourMT3+",
-        "defaultProvider": (("muscriptor_local" if MUSCRIPTOR is not None else "muscriptor_public")
-                            if is_muscriptor else "yourmt3"),
+        "provider": "YourMT3+",
+        "defaultProvider": "yourmt3",
         "providers": providers,
         "instrumentHint": True,
         "ready": True,
-        "privateMuscriptorReady": MUSCRIPTOR is not None,
         'fileLimits': {'audioBytes': MAX_AUDIO_BYTES, 'midiBytes': MAX_MIDI_BYTES, 'projectBytes': MAX_PROJECT_BYTES},
-        "message": (MUSCRIPTOR_ERROR or "") if ENABLE_LOCAL_AMT else "",
     }, headers={"Cache-Control": "no-store"})
 
 
@@ -294,22 +264,6 @@ def save_project(session: str,filename: str,edits_json: str,recording_start: flo
         if temporary.is_dir():shutil.rmtree(temporary)
 
 
-def _transcribe_private_muscriptor(folder: Path, duration: float, instrument: str) -> dict:
-    if MUSCRIPTOR is None:
-        raise ValueError(
-            f"{MUSCRIPTOR_ERROR or 'MuScriptor is not available'} "
-            "Choose a public transcription service instead."
-        )
-    if instrument and instrument not in MUSCRIPTOR_INSTRUMENTS:
-        raise ValueError("Choose an instrument from the list or use Automatic · all parts.")
-    from notesep.local_transcription import local_midi
-    midi_data = local_midi(MUSCRIPTOR, folder / 'input.wav', instrument)
-    return {"notes": midi_notes(midi_data, duration),
-            "rawMidiNoteEvents": midi_note_event_count(midi_data),
-            "provider": "MuScriptor · on this Space", "instrument": instrument or "",
-            'provenance': MUSCRIPTOR_IDENTITY}
-
-
 def _transcribe_yourmt3(folder: Path, duration: float) -> dict:
     """Run the public YourMT3+ service and normalize its MIDI response."""
     midi_data = transcribe_with_yourmt3(folder / 'input.wav')
@@ -319,18 +273,12 @@ def _transcribe_yourmt3(folder: Path, duration: float) -> dict:
 
 def _draft_response(session: str, folder: Path, duration: float, notes: list[dict],
                     provider: str, instrument: str = "",
-                    raw_midi_note_events: int | None = None,
-                    transcription_provenance: dict | None = None) -> dict:
+                    raw_midi_note_events: int | None = None) -> dict:
     audio = decode_audio(folder / "input.wav")
     return {"session": session, "notes": notes, "duration": duration,
             "provider": provider, "instrument": instrument,
             "rawMidiNoteEvents": raw_midi_note_events,
-            'transcriptionProvenance': transcription_provenance,
             "audioCheck": audit_score_audio(audio, notes, RATE)}
-
-
-if ENABLE_LOCAL_AMT:
-    _transcribe_private_muscriptor = spaces.GPU(duration=45)(_transcribe_private_muscriptor)
 
 
 @app.api(name="transcribe", concurrency_limit=1)
@@ -346,12 +294,6 @@ def transcribe(session: str, instrument: str = "", provider: str = "yourmt3") ->
         raw_note_events = midi_note_event_count(data)
         return _draft_response(session, folder, duration, notes,
                                "MuScriptor · public", instrument or "", raw_note_events)
-
-    if provider == "muscriptor_local":
-        draft = _transcribe_private_muscriptor(folder, duration, instrument)
-        return _draft_response(session, folder, duration, draft["notes"],
-                               draft["provider"], draft.get("instrument", ""),
-                               draft.get("rawMidiNoteEvents"), draft.get('provenance'))
 
     if provider != "yourmt3":
         raise ValueError("Choose YourMT3+ or MuScriptor for transcription.")
@@ -387,10 +329,6 @@ def cross_check(session: str, notes_json: str, provider: str,
         draft = _transcribe_yourmt3(folder, duration)
         independent = draft["notes"]
         independent_label = "YourMT3+"
-    elif provider == 'muscriptor_local':
-        draft = _transcribe_private_muscriptor(folder, duration, instrument)
-        independent = draft['notes']
-        independent_label = 'MuScriptor · pinned local'
     else:
         raise ValueError("Choose an available MuScriptor or YourMT3+ draft")
     return compare_transcriptions(current, independent,

@@ -122,7 +122,7 @@ checked and how to download a dataset package.
 | `src/notesep/` | Python API, command-line tools, Studio, and inference support |
 | `src/notesep/models/` | Released model architecture and checkpoint-loading code |
 | `configs/` | Hydra training recipes and their stage settings |
-| `training/` | Paper training launchers, data readers, samplers, and source checks |
+| `training/` | Paper training launchers, data readers, samplers, and input checks |
 | `train.py` | Selects and launches a configured training recipe |
 | `pyproject.toml` | Package metadata and optional dependency groups |
 | `THIRD_PARTY_NOTICES.md` | Licenses and notices for included third-party code |

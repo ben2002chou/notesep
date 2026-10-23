@@ -1,6 +1,0 @@
-{
-  "example_id": "orchestra",
-  "origin": "official static demo; SCNS-Eval-v3 curated orchestral excerpt",
-  "source_manifest_sha256": "a2621df63630404f7c11369859420a08c94eaa6bffbe71a3912656551b590ac0",
-  "role": "runtime smoke test, not the full evaluation set"
-}

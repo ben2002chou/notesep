@@ -65,13 +65,6 @@ def main():
     from notesep.training_paths import configure, relocated
 
     configure(args.path_map)
-    sources = {}
-    for root in [DATA, MODELS]:
-        manifest = json.loads((root / "source_manifest.json").read_text())
-        for name, checksum in manifest["files"].items():
-            if sha(root / name) != checksum:
-                raise ValueError("Recovered source changed: " + name)
-            sources[str((root / name).relative_to(ROOT))] = checksum
     contract_path = ROOT / "training/notegrab/training_contract.json"
     if sha(contract_path) != TRAINING_CONTRACT_SHA:
         raise ValueError("Training recipe changed")
@@ -80,7 +73,6 @@ def main():
             json.dumps(
                 {
                     "status": "passed",
-                    "source_files": len(sources),
                     "training_contract_sha256": TRAINING_CONTRACT_SHA,
                 },
                 indent=2,
@@ -168,10 +160,12 @@ def main():
         "base": base.__file__,
         "selective": selective.__file__,
     }
+    component_roots = [DATA.resolve(), MODELS.resolve()]
     for name in resolved.values():
-        if str(Path(name).relative_to(ROOT)) not in sources:
+        source = Path(name).resolve()
+        if not any(source.is_relative_to(root) for root in component_roots):
             raise ValueError(
-                "Runtime dependency outside recovered closure: " + name
+                "Runtime dependency outside NoteGrab code: " + name
             )
     passed = not any(comparison.values())
     report = {
@@ -182,8 +176,10 @@ def main():
         "training_contract_sha256": sha(contract_path),
         "score_index_sha256": gate["score_index_sha256"],
         "environment_sha256": sha(environment_path),
-        "source_files": len(sources),
-        "source_sha256": sources,
+        "runtime_components": {
+            key: str(Path(value).resolve().relative_to(ROOT))
+            for key, value in resolved.items()
+        },
         "runtime_resolution": {
             key: str(Path(value).relative_to(ROOT))
             for key, value in resolved.items()
@@ -207,7 +203,7 @@ def main():
         json.dumps(
             {
                 "status": report["status"],
-                "source_files": len(sources),
+                "runtime_components": len(resolved),
                 "contract_difference_counts": {
                     name: len(items) for name, items in comparison.items()
                 },

@@ -34,7 +34,7 @@ function hideProgress(){
 const transcriptionFailureMessage=error=>{
   const message=String(error?.message||error||'Unknown transcription error');
   const provider=selectedProvider();
-  const alternate=provider==='muscriptor_public'||provider==='muscriptor_local'?'YourMT3+ · public':'MuScriptor · public';
+  const alternate=provider==='muscriptor_public'?'YourMT3+ · public':'MuScriptor · public';
   if(/quota|rate.?limit|could not reserve.*\d+\s*s|not enough.*gpu/i.test(message)){
     const retry=message.match(/Try again in\s+([^\.\r\n]+)/i)?.[1]?.trim();
     return `This transcription service is temporarily at its usage limit${retry?` (try again in ${retry})`:''}. Your audio and spectrogram are still loaded; choose ${alternate} above and click “Try a new draft,” or add notes/import MIDI.`;
@@ -214,10 +214,9 @@ function reconstructionSummary(check){
 }
 function updateTranscriptionPrivacy(){
   const provider=selectedProvider();
-  const isMuScriptor=provider.startsWith('muscriptor');
+  const isMuScriptor=provider==='muscriptor_public';
   ui.instrumentHintChoice.hidden=!isMuScriptor||Boolean(ui.midi.files?.length);
   if(provider==='muscriptor_public')ui.transcriptionPrivacy.innerHTML='Only the selected edit window is sent to the <a href="https://muscriptor.kyutai.org/" target="_blank" rel="noopener noreferrer">public MuScriptor service</a>; its FAQ says uploaded audio is not kept afterwards. If you choose cross-check, the same window is also sent to public YourMT3+.';
-  else if(provider==='muscriptor_local')ui.transcriptionPrivacy.textContent='Only the selected edit window is sent to this Space’s MuScriptor model. If you choose cross-check, the same window is also sent to public YourMT3+.';
   else ui.transcriptionPrivacy.innerHTML='Only the selected edit window is sent to the public <a href="https://huggingface.co/spaces/mimbres/YourMT3" target="_blank" rel="noopener noreferrer">YourMT3+ Space</a>. If you choose cross-check, the same window is also sent to public MuScriptor.';
 }
 function partialPartSelection(){return state.currentPart!=='all'&&new Set(state.allNotes.map(n=>n.partId||'all')).size>1;}
@@ -260,10 +259,9 @@ async function transcribeDraft(){
   const provider=selectedProvider();
   const providerLabel=ui.provider.selectedOptions[0]?.textContent?.trim()||provider;
   offerAlternateProvider(false);
-  if(provider==='muscriptor_local'&&!config.privateMuscriptorReady)throw new Error(`${config.message||'Private MuScriptor is not available.'} Choose a public transcription service instead.`);
-  const instrument=provider.startsWith('muscriptor')?ui.instrumentHint.value:'';
+  const instrument=provider==='muscriptor_public'?ui.instrumentHint.value:'';
   showProgress(`Drafting score with ${providerLabel}`);
-  report(provider==='muscriptor_local'?'MuScriptor is drafting notes here…':provider==='muscriptor_public'?'Sending only the selected window to the public MuScriptor service…':'YourMT3+ is making a first-pass draft from the selected window.');
+  report(provider==='muscriptor_public'?'Sending only the selected window to the public MuScriptor service…':'YourMT3+ is making a first-pass draft from the selected window.');
   let output;
   try{output=await call('transcribe',{session:state.session,instrument,provider});}
   catch(error){offerAlternateProvider(true);throw new Error(transcriptionFailureMessage(error));}
@@ -344,12 +342,12 @@ ui.alternateTranscriber.addEventListener('click',()=>busy(async()=>{
 }));
 ui.crossCheck.addEventListener('click',()=>busy(async()=>{
   const source=state.transcriptionProvider||selectedProvider();
-  const provider=source.startsWith('muscriptor')?'yourmt3':(config.privateMuscriptorReady?'muscriptor_local':'muscriptor_public');
+  const provider=source==='muscriptor_public'?'yourmt3':'muscriptor_public';
   const label=provider==='yourmt3'?'YourMT3+':'MuScriptor';
   showProgress(`Cross-checking with ${label}`);
   report(`Running an independent ${label} draft. Your current score will not be replaced.`);
   const result=await call('cross_check',{session:state.session,notes_json:JSON.stringify(state.score),provider,
-    instrument:provider.startsWith('muscriptor')?ui.instrumentHint.value:''});
+    instrument:provider==='muscriptor_public'?ui.instrumentHint.value:''});
   if((result.primaryOnly||[]).length||(result.independentOnly||[]).length){state.scoreReviewed=false;ui.reviewed.checked=false;}
   state.crossCheck=result;state.crossCheckStale=false;state.qualityWarning=result.summary;renderCrossCheck(result);
   const editor=await api();

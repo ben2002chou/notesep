@@ -31,5 +31,5 @@ where = ["src"]
 [tool.setuptools.package-data]
 notesep = [
   "studio_static/**/*", "studio_static/*", "legal/*",
-  "models/LICENSE-*.txt", "models/LICENSE-*-provenance.json",
+  "models/LICENSE-*.txt",
 ]
