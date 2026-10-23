@@ -1,8 +1,8 @@
 # Python source
 
-The installable library is under `notesep/`; the checkpoint's model architecture is under `model_exp/`. The repository-level README shows the Python, CLI, and Studio entry points.
+The installable library is under `notesep/`. Its `models/` folder contains the architecture used by the released checkpoint. The repository-level README shows the Python, CLI, Studio, and training entry points.
 
 | Folder | Purpose |
 | --- | --- |
 | `notesep/` | Public API, inference, editing, and local Studio. |
-| `model_exp/` | Neural architectures and strict checkpoint-contract loaders. |
+| `models/` | Neural architecture used by the released checkpoint, plus ASO inference code. |

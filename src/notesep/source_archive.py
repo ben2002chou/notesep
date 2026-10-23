@@ -11,7 +11,7 @@ import io
 def build_source_archive():
     package = Path(__file__).resolve().parent
     entries = {}
-    for root in (package, package.parent / 'model_exp'):
+    for root in (package, package / 'models'):
         if not root.is_dir() or root.is_symlink():
             raise ValueError('Serving source package missing or symlinked')
         for path in sorted(root.rglob('*')):

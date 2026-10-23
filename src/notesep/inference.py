@@ -19,10 +19,14 @@ import torch
 from .assets import model_profile, weights_directory, checkpoint_hashes
 from .training_window import TrainingWindow, place_prediction
 from .aso_onset_support import onset_supported_forward
-from model_exp.occurrence_dual_hpss_separator import occurrence_dual_hpss_separator_from_contract
-from model_exp.hpss_target import project_hpss_batch
-from model_exp.acoustic_multiplicative_temporal_ownership import AcousticMultiplicativeTemporalOwnership
-from model_exp.temporal_hybrid_set_ownership import TemporalHybridOwnershipConfig
+from .models.occurrence_dual_hpss_separator import (
+    occurrence_dual_hpss_separator_from_contract,
+)
+from .models.hpss_target import project_hpss_batch
+from .models.acoustic_multiplicative_temporal_ownership import (
+    AcousticMultiplicativeTemporalOwnership,
+)
+from .models.temporal_hybrid_set_ownership import TemporalHybridOwnershipConfig
 
 RATE = 16000
 SEPARATOR_SHA = "a3535f3ad99a297967dd18a4c4b8a9a8f7d47f3c6b05f72c0e2449d8c4be2d68"
@@ -60,7 +64,7 @@ def _load_models(device_name: str, profile: str, weights_path: str):
     separator.to(device).eval()
     del checkpoint
     checkpoint = torch.load(aso_path, map_location="cpu", weights_only=False)
-    source_root = Path(__file__).resolve().parents[1] / 'model_exp'
+    source_root = Path(__file__).resolve().parent / 'models'
     for filename, contract_key in [
         ('acoustic_multiplicative_temporal_ownership.py', 'acoustic_multiplicative_model_source_sha256'),
         ('temporal_hybrid_set_ownership.py', 'model_source_sha256'),

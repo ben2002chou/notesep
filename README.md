@@ -8,17 +8,16 @@ This repository includes the Python API, command-line tool, local piano-roll edi
 
 ## Try the example
 
-Use Python 3.10 or newer. From the repository root:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and use
+Python 3.10 or newer. From the repository root:
 
 ```sh
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install -e ".[baseline]"
+uv sync --extra baseline
 
-notesep baseline src/notesep/studio_static/examples/mixture.wav \
+uv run notesep baseline src/notesep/studio_static/examples/mixture.wav \
   --score src/notesep/studio_static/examples/score.mid \
   --output example-notes --iterations 1000
-notesep render example-notes/project.json --output edited.wav
+uv run notesep render example-notes/project.json --output edited.wav
 ```
 
 `example-notes/` contains one WAV per note, their sum, and a project you can reopen. `edited.wav` matches the sum until you make an edit.
@@ -30,9 +29,9 @@ pair. Install the Studio dependencies, then download the pair and check its
 file hashes:
 
 ```sh
-python -m pip install -e ".[studio]"
-notesep download
-notesep verify
+uv sync --extra studio
+uv run notesep download
+uv run notesep verify
 ```
 
 ## Inference
@@ -40,7 +39,7 @@ notesep verify
 Start the editor:
 
 ```sh
-notesep studio
+uv run notesep studio
 ```
 
 In Studio, upload a WAV, FLAC, MP3, or AIFF recording and an aligned MIDI file, or ask for a draft transcription. Fix wrong or missing notes in the piano roll before separating. You can then audition and edit the note audio, download an edited mix, or save the stems and project for later.
@@ -48,8 +47,8 @@ In Studio, upload a WAV, FLAC, MP3, or AIFF recording and an aligned MIDI file, 
 If you already have a corrected score, you can work from the command line:
 
 ```sh
-notesep separate recording.wav --score corrected.mid --output separated
-notesep render separated/project.json --output edited.wav
+uv run notesep separate recording.wav --score corrected.mid --output separated
+uv run notesep render separated/project.json --output edited.wav
 ```
 
 Use `--window-start` and `--window-seconds` to select a 1.1–12 second passage from a longer recording. Scores can be MIDI or JSON; by default, their times refer to the full recording. See `notesep separate --help` for the remaining options.
@@ -85,16 +84,16 @@ The paper has two training recipes: NoteGrab and ASO. Install the training
 dependencies and download the NoteGrab starting checkpoint:
 
 ```sh
-python -m pip install -e ".[train]"
-python training/download_initial_checkpoint.py --output checkpoints
+uv sync --extra train
+uv run python training/download_initial_checkpoint.py --output checkpoints
 ```
 
-NoteGrab starts from `checkpoints/0441537c.pt`, the model checkpoint saved at
-training step 250. This is separate from the released inference checkpoint
-pair above. Then launch NoteGrab with the prepared data package:
+NoteGrab's paper recipe starts from `checkpoints/0441537c.pt`, saved at training
+step 250. Download it only when reproducing training; normal inference uses the
+checkpoint pair above. Then launch NoteGrab with the prepared data package:
 
 ```sh
-python train.py stage=notegrab run.dir=outputs/notegrab \
+uv run python train.py stage=notegrab run.dir=outputs/notegrab \
   data.root=/path/to/notegrab-data \
   data.initialization=checkpoints/0441537c.pt
 ```
@@ -103,7 +102,7 @@ ASO trains from scratch and needs a fresh index, recorded data, proposal data,
 and the proposal validation hash:
 
 ```sh
-python train.py stage=aso run.dir=outputs/aso \
+uv run python train.py stage=aso run.dir=outputs/aso \
   data.fresh_index=/path/to/fresh-index.json \
   data.recorded_root=/path/to/recorded-data \
   data.proposal_root=/path/to/proposal-data \
@@ -121,7 +120,7 @@ checked and how to download a dataset package.
 | Path | Purpose |
 | --- | --- |
 | `src/notesep/` | Python API, command-line tools, Studio, and inference support |
-| `src/model_exp/` | Model architecture and checkpoint-loading code used by inference |
+| `src/notesep/models/` | Released model architecture and checkpoint-loading code |
 | `configs/` | Hydra training recipes and their stage settings |
 | `training/` | Paper training launchers, data readers, samplers, and source checks |
 | `train.py` | Selects and launches a configured training recipe |

@@ -21,9 +21,9 @@ def load_muscriptor(device='auto', model_file=None):
     try:
         version = importlib.metadata.version('muscriptor')
     except importlib.metadata.PackageNotFoundError as error:
-        raise ValueError('Install notesep[muscriptor-local] for local transcription') from error
+        raise ValueError('Local MuScriptor is not included in the standard uv environment') from error
     if version != '0.3.0':
-        raise ValueError('Use muscriptor==0.3.0 from the muscriptor-local extra')
+        raise ValueError('Use a separate environment with the compatible MuScriptor release')
     from muscriptor import TranscriptionModel
     if device == 'auto':
         import torch

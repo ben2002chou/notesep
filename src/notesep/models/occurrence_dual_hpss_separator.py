@@ -499,27 +499,22 @@ class OccurrenceDualHPSSSeparator(nn.Module):
 
 
 def occurrence_dual_hpss_separator_from_contract(raw: object) -> OccurrenceDualHPSSSeparator:
-    if (
-        isinstance(raw, dict)
-        and raw.get("kind")
-        == "occurrence_dual_hpss_symmetric_cqt_comb_film_v1"
-    ):
-        from .occurrence_dual_hpss_cqt_comb_film import (
-            occurrence_dual_hpss_cqt_comb_film_from_contract,
-        )
-
-        return occurrence_dual_hpss_cqt_comb_film_from_contract(raw)  # type: ignore[return-value]
-    if isinstance(raw, dict) and raw.get("kind") == "occurrence_dual_hpss_band_split_roformer_v2":
-        from .occurrence_dual_hpss_band_split_roformer import (
-            occurrence_dual_hpss_band_split_roformer_from_contract,
-        )
-
-        return occurrence_dual_hpss_band_split_roformer_from_contract(raw)  # type: ignore[return-value]
     if not isinstance(raw, dict) or raw.get("kind") != _CONTRACT_KIND:
         raise ValueError("Checkpoint lacks a dual HPSS contract")
-    preset = raw.get("preset")
-    if preset is not None and not isinstance(preset, str):
-        raise ValueError("Dual HPSS contract has an invalid preset")
+    architecture = raw.get("architecture", {})
+    communication = architecture.get("communication")
+    if raw.get("preset") != "30m" or not isinstance(communication, dict):
+        raise ValueError("Checkpoint does not use the released NoteSep architecture")
+    if any(
+        architecture.get(key) is not None
+        for key in ("joint_output", "merged_output", "learned_loop")
+    ):
+        raise ValueError("Checkpoint does not use the released NoteSep architecture")
+    if architecture.get("layout") != (
+        "symmetric_low_resolution_aligned_hpss_harmonic_and_percussive_branches"
+    ):
+        raise ValueError("Checkpoint does not use the released NoteSep architecture")
+    preset = raw["preset"]
     gate = raw.get("harmonic_gate") or {}
     mode = str(gate.get("mode", "none"))
     parameterization = str(
@@ -547,177 +542,33 @@ def occurrence_dual_hpss_separator_from_contract(raw: object) -> OccurrenceDualH
     hold = conditioning.get("training_positive_hold_ms", [0.0, 0.0])
     if not isinstance(hold, list) or len(hold) != 2:
         raise ValueError("Dual HPSS contract has invalid roll hold bounds")
-    communication = raw.get("architecture", {}).get("communication")
-    learned_loop = raw.get("architecture", {}).get("learned_loop")
-    merged_output = raw.get("architecture", {}).get("merged_output")
-    joint_output = raw.get("architecture", {}).get("joint_output")
-    harmonic_evidence = raw.get("architecture", {}).get("harmonic_evidence")
-    pitch_track_renderer = raw.get("architecture", {}).get(
-        "shared_pitch_track_complex_renderer"
+    expected_communication = {
+        "type": "simultaneous_bidirectional_cross_attention",
+        "rungs": ["deep_encoder", "bottleneck", "deep_decoder"],
+        "attention_heads": communication.get("attention_heads"),
+        "direction_parameters": "untied",
+        "output_projection_initialization": "zeros",
+        "message_fusion": "residual_add",
+        "snapshot_policy": "both_directions_read_same_pre_fusion_states",
+    }
+    if communication != expected_communication:
+        raise ValueError("Checkpoint has an unsupported NoteSep communication layout")
+    from .occurrence_dual_hpss_symmetric_alignment import (
+        OccurrenceDualHPSSSymmetricAlignment,
     )
-    aligned = communication is not None
-    if aligned:
-        expected_communication = {
-            "type": "simultaneous_bidirectional_cross_attention",
-            "rungs": ["deep_encoder", "bottleneck", "deep_decoder"],
-            "attention_heads": communication.get("attention_heads"),
-            "direction_parameters": "untied",
-            "output_projection_initialization": "zeros",
-            "message_fusion": "residual_add",
-            "snapshot_policy": "both_directions_read_same_pre_fusion_states",
-        }
-        if communication != expected_communication:
-            raise ValueError("Dual HPSS contract has invalid communication topology")
-        if merged_output is not None and joint_output is not None:
-            raise ValueError("Dual HPSS contract cannot declare two output mergers")
-        if joint_output is not None:
-            if learned_loop is not None:
-                raise ValueError("Joint complex output cannot use the learned loop")
-            expected_joint_output = {
-                "type": "direct_complex_linear_hp_fusion",
-                "input": "post_branch_physical_scale_projected_target_spectra",
-                "channels": ["H.real", "H.imag", "P.real", "P.imag"],
-                "output": ["source.real", "source.imag"],
-                "kernel": [1, 1],
-                "bias": False,
-                "initialization": "exact_complex_H_plus_P",
-                "external_sum_bypass": False,
-                "free_residual_head": False,
-                "mixture_projection": False,
-            }
-            expected_frequencywise_joint_output = {
-                "type": "direct_complex_frequencywise_local_tf_hp_fusion",
-                "input": "post_branch_physical_scale_projected_target_spectra",
-                "channels": ["H.real", "H.imag", "P.real", "P.imag"],
-                "output": ["source.real", "source.imag"],
-                "frequencywise_matrix": [2, 4],
-                "local_tf_kernel": [3, 3],
-                "bias": False,
-                "initialization": "exact_complex_H_plus_P",
-                "external_sum_bypass": False,
-                "free_residual_head": False,
-                "mixture_projection": False,
-            }
-            if joint_output == expected_joint_output:
-                from .occurrence_dual_hpss_joint_complex_output import (
-                    OccurrenceDualHPSSJointComplexOutput,
-                )
 
-                model_type = OccurrenceDualHPSSJointComplexOutput
-            elif joint_output == expected_frequencywise_joint_output:
-                from .occurrence_dual_hpss_frequencywise_joint_output import (
-                    OccurrenceDualHPSSFrequencywiseJointOutput,
-                )
-
-                model_type = OccurrenceDualHPSSFrequencywiseJointOutput
-            else:
-                raise ValueError("Dual HPSS contract has invalid joint output")
-        elif merged_output is not None:
-            if learned_loop is not None:
-                raise ValueError("Merged HPSS output cannot use the learned loop")
-            if not isinstance(harmonic_evidence, dict):
-                raise ValueError("Merged HPSS output lacks harmonic evidence metadata")
-            from .occurrence_dual_hpss_merged_output import (
-                OccurrenceDualHPSSMergedOutput,
-            )
-
-            model_type = OccurrenceDualHPSSMergedOutput
-        elif learned_loop is None:
-            from .occurrence_dual_hpss_symmetric_alignment import (
-                OccurrenceDualHPSSSymmetricAlignment,
-            )
-
-            model_type = OccurrenceDualHPSSSymmetricAlignment
-        else:
-            expected_loop = {
-                "type": "zero_initialized_previous_estimate_complex_stft_sidecar",
-                "injection": "branch_first_conv_output_residual",
-                "condition": "previous_hpss_component_estimate",
-                "original_mixture_visible_every_step": True,
-                "steps": learned_loop.get("steps"),
-                "can_add_and_remove_energy": True,
-                "can_refine_phase": True,
-            }
-            if learned_loop != expected_loop or int(learned_loop.get("steps", 0)) < 1:
-                raise ValueError("Dual HPSS contract has an invalid learned loop")
-            from .occurrence_dual_hpss_learned_loop import (
-                OccurrenceDualHPSSLearnedLoop,
-            )
-
-            model_type = OccurrenceDualHPSSLearnedLoop
-        attention_heads = int(communication["attention_heads"])
-    else:
-        model_type = OccurrenceDualHPSSSeparator
-        attention_heads = None
-    if preset is None:
-        config_raw = raw.get("architecture", {}).get("harmonic_branch", {}).get("config")
-        if not isinstance(config_raw, dict):
-            raise ValueError("Custom dual HPSS contract lacks a config")
-        try:
-            config = DNAResidualTFCTDFUNetConfig(**config_raw)
-        except TypeError as error:
-            raise ValueError("Invalid custom dual HPSS config") from error
-        if aligned:
-            extra = {}
-            if learned_loop is not None:
-                extra["loop_steps"] = int(learned_loop["steps"])
-            if merged_output is not None:
-                extra["harmonic_evidence_mode"] = str(harmonic_evidence["mode"])
-            model = model_type(
-                None,
-                mode,
-                parameterization,
-                conditioning_mode,
-                *map(float, hold),
-                config=config,
-                attention_heads=attention_heads,
-                harmonic_parameterization=harmonic_parameterization,
-                output_carrier_mode=output_carrier_mode,
-                complex_mask_mode=complex_mask_mode,
-                **extra,
-            )
-        else:
-            model = model_type.from_config(
-                config,
-                mode,
-                parameterization,
-                conditioning_mode,
-                *map(float, hold),
-                harmonic_parameterization=harmonic_parameterization,
-                output_carrier_mode=output_carrier_mode,
-                complex_mask_mode=complex_mask_mode,
-            )
-    else:
-        extra = {} if attention_heads is None else {"attention_heads": attention_heads}
-        if learned_loop is not None:
-            extra["loop_steps"] = int(learned_loop["steps"])
-        if merged_output is not None:
-            extra["harmonic_evidence_mode"] = str(harmonic_evidence["mode"])
-        model = model_type.from_preset(
-            preset,
-            mode,
-            parameterization,
-            conditioning_mode,
-            *map(float, hold),
-            harmonic_parameterization=harmonic_parameterization,
-            output_carrier_mode=output_carrier_mode,
-            complex_mask_mode=complex_mask_mode,
-            **extra,
-        )
-    initialization = raw.get("initialization_checkpoint")
-    if initialization is not None:
-        if not aligned or not isinstance(initialization, dict):
-            raise ValueError("Dual HPSS contract has invalid initialization binding")
-        model.communication_initialization = initialization
-    if pitch_track_renderer is not None:
-        if not aligned or learned_loop is not None:
-            raise ValueError(
-                "Shared pitch-track rendering requires the symmetric non-loop model"
-            )
-        enable = getattr(model, "enable_shared_pitch_track_renderer", None)
-        if enable is None:
-            raise ValueError("Shared pitch-track renderer method is unavailable")
-        enable()
+    attention_heads = int(communication["attention_heads"])
+    model = OccurrenceDualHPSSSymmetricAlignment.from_preset(
+        preset,
+        mode,
+        parameterization,
+        conditioning_mode,
+        *map(float, hold),
+        attention_heads=attention_heads,
+        harmonic_parameterization=harmonic_parameterization,
+        output_carrier_mode=output_carrier_mode,
+        complex_mask_mode=complex_mask_mode,
+    )
     # Ownership checkpoints written before the magnitude-mask ablation did not
     # spell out the (then implicit) percussive parameterization.  Normalize
     # that one additive field while preserving strict equality for everything

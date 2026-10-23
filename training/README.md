@@ -5,7 +5,7 @@ code repository. Install the training dependencies before downloading data or
 running a recipe:
 
 ```sh
-python -m pip install -e ".[train]"
+uv sync --extra train
 ```
 
 ## Prepare the data
@@ -15,7 +15,7 @@ commit. Replace the example repository and commit with the dataset release
 details:
 
 ```sh
-notesep download-data --output /path/to/notegrab-data \
+uv run notesep download-data --output /path/to/notegrab-data \
   --repo-id ORGANIZATION/DATASET --revision DATASET_COMMIT
 ```
 
@@ -28,13 +28,13 @@ NoteGrab starts from the model checkpoint saved at training step 250. Download
 that starting checkpoint:
 
 ```sh
-python training/download_initial_checkpoint.py --output /path/to/checkpoints
+uv run python training/download_initial_checkpoint.py --output /path/to/checkpoints
 ```
 
 Then run the recipe with the data package and checkpoint:
 
 ```sh
-python train.py stage=notegrab run.dir=outputs/notegrab \
+uv run python train.py stage=notegrab run.dir=outputs/notegrab \
   data.root=/path/to/notegrab-data \
   data.initialization=/path/to/checkpoints/0441537c.pt
 ```
@@ -45,15 +45,15 @@ ASO trains from scratch. It needs a fresh index, recorded data, proposal data,
 and the proposal validation hash:
 
 ```sh
-python train.py stage=aso run.dir=outputs/aso \
+uv run python train.py stage=aso run.dir=outputs/aso \
   data.fresh_index=/path/to/fresh-index.json \
   data.recorded_root=/path/to/recorded-data \
   data.proposal_root=/path/to/proposal-data \
   training.proposal_validation_sha256=<validated-sha256>
 ```
 
-Use `python train.py --cfg job` to inspect the selected settings. Each input
-must match its expected manifest and hashes.
+Use `uv run python train.py --cfg job` to inspect the selected settings. Each
+input must match its expected manifest and hashes.
 
 ## Files
 
