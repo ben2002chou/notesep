@@ -10,17 +10,17 @@ uv sync --extra train
 
 ## Prepare the data
 
-Download a dataset snapshot from its Hugging Face repository at an immutable
-commit. Replace the example repository and commit with the dataset release
-details:
+The training dataset has not been published yet. The commands below require
+the packed training data and its metadata on disk.
+
+If you already have the data package, check it and generate its local path map:
 
 ```sh
 uv run notesep download-data --output /path/to/notegrab-data \
-  --repo-id ORGANIZATION/DATASET --revision DATASET_COMMIT
+  --manifest /path/to/notegrab-data/manifest.json
 ```
 
-The downloader checks each file against the package manifest. For data already
-on disk, pass its manifest with `--manifest /path/to/manifest.json`.
+The path map lets the training scripts find the data wherever you store it.
 
 ## Run NoteGrab
 
@@ -41,8 +41,8 @@ uv run python train.py stage=notegrab run.dir=outputs/notegrab \
 
 ## Run ASO
 
-ASO trains from scratch. It needs a fresh index, recorded data, proposal data,
-and the proposal cache from the validated training package:
+ASO trains from scratch. Its inputs are an index of synthesized examples,
+recorded audio, and precomputed note proposals:
 
 ```sh
 uv run python train.py stage=aso run.dir=outputs/aso \
@@ -65,4 +65,4 @@ files are checked against the manifests in the package.
 | `train_aso.py` | Validates ASO inputs and launches its training recipe. |
 | `run_aso_training.py` | Applies and records the ASO numerical runtime settings. |
 | `aso/` | ASO model, data, and training implementation. |
-| `notegrab/` | NoteGrab recipe, models, data, and saved training settings. |
+| `notegrab/` | NoteGrab data readers, losses, and training settings. Shared model layers are in `src/notesep/models/`. |

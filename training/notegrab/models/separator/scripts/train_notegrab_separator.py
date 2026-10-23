@@ -21,7 +21,7 @@ from model_exp.harmonic_target import (  # noqa: E402
     gt_adaptive_harmonic_comb_loss,
     project_harmonic_target_batch,
 )
-from model_exp.hpss_target import project_hpss_batch  # noqa: E402
+from notesep.models.hpss_target import project_hpss_batch  # noqa: E402
 from model_exp.occurrence_dual_hpss_separator import (  # noqa: E402
     CONDITIONING_MODES,
     HARMONIC_PARAMETERIZATIONS,
@@ -49,12 +49,12 @@ from model_exp.occurrence_subtraction_diagnostics import (  # noqa: E402
 from model_exp.occurrence_dual_harmonic_residual_separator import (  # noqa: E402
     OccurrenceDualHarmonicResidualSeparator,
 )
-from model_exp.occurrence_joint_tfc_tdf_separator import (  # noqa: E402
+from notesep.models.occurrence_joint_tfc_tdf_separator import (  # noqa: E402
     bounded_complex_ratio_mask_loss,
     magnitude_source_ownership_loss,
     unbounded_complex_ratio_mask_loss,
 )
-from model_exp.pitch_relative_harmonic_gate import (  # noqa: E402
+from notesep.models.pitch_relative_harmonic_gate import (  # noqa: E402
     GATE_MODES,
     gate_applies_to_target_and_prediction,
     pitch_relative_harmonic_gate,

@@ -98,8 +98,8 @@ uv run python train.py stage=notegrab run.dir=outputs/notegrab \
   data.initialization=checkpoints/0441537c.pt
 ```
 
-ASO trains from scratch and needs a fresh index, recorded data, proposal data,
-and the proposal cache from the validated training package:
+ASO trains from scratch. Its inputs are an index of synthesized examples,
+recorded audio, and precomputed note proposals:
 
 ```sh
 uv run python train.py stage=aso run.dir=outputs/aso \

@@ -1,1 +1,1 @@
-"""Self-contained model experiments for transcription+codec token prediction."""
+"""Audio and score ownership models used during ASO training."""

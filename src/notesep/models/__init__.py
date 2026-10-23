@@ -1,1 +1,1 @@
-"""Self-contained model experiments for transcription+codec token prediction."""
+"""Neural networks for score-informed note separation."""

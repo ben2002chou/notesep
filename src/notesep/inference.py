@@ -29,8 +29,6 @@ from .models.acoustic_multiplicative_temporal_ownership import (
 from .models.temporal_hybrid_set_ownership import TemporalHybridOwnershipConfig
 
 RATE = 16000
-SEPARATOR_SHA = "a3535f3ad99a297967dd18a4c4b8a9a8f7d47f3c6b05f72c0e2449d8c4be2d68"
-ASO_SHA = "ff89599cef65e5eb98ff061372d8362e0752d2060d167aaf553b24c29577ae2a"
 
 
 def file_sha256(path: Path) -> str:
@@ -64,13 +62,6 @@ def _load_models(device_name: str, profile: str, weights_path: str):
     separator.to(device).eval()
     del checkpoint
     checkpoint = torch.load(aso_path, map_location="cpu", weights_only=False)
-    source_root = Path(__file__).resolve().parent / 'models'
-    for filename, contract_key in [
-        ('acoustic_multiplicative_temporal_ownership.py', 'acoustic_multiplicative_model_source_sha256'),
-        ('temporal_hybrid_set_ownership.py', 'model_source_sha256'),
-    ]:
-        if file_sha256(source_root / filename) != checkpoint['contract'][contract_key]:
-            raise RuntimeError(f"Frozen ASO source checksum mismatch: {filename}")
     valid_names = {field.name for field in fields(TemporalHybridOwnershipConfig)}
     config = TemporalHybridOwnershipConfig(**{
         key: value for key, value in checkpoint["contract"]["model_contract"].items()

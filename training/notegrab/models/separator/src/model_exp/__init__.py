@@ -1,1 +1,1 @@
-"""Self-contained model experiments for transcription+codec token prediction."""
+"""NoteGrab training datasets, losses, and model extensions."""

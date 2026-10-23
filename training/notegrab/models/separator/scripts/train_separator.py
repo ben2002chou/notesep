@@ -42,7 +42,7 @@ from model_exp.dna_residual_band_expert import (  # noqa: E402
     DNAResidualBandDualRegionExpert,
     DNAResidualBandDualRegionExpertConfig,
 )
-from model_exp.dna_residual_tfc_tdf_unet import (  # noqa: E402
+from notesep.models.dna_residual_tfc_tdf_unet import (  # noqa: E402
     DNAResidualTFCTDFUNet,
     dna_residual_tfc_tdf_unet_config,
 )

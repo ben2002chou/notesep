@@ -126,5 +126,4 @@ def separate_baseline(audio_path, notes, *, max_iter=1000):
     estimates, contract = infer_nmf_piece_float64(adapter, audio, {'events':events}, prepared, max_iter)
     return NoteBank(notes, np.stack(estimates), RATE, provenance={
         'method':'score_informed_nmf', 'contract':contract, 'input_sha256':sha256(audio_path),
-        'original_runner_sha256':'61433085b089773116b2c12f2c56302db8cc4d8c0afc0608781b63936e57ff92',
         'endpoint_policy':'provided_score_end', 'role':'portable user tool; frozen paper evaluator is separate'})

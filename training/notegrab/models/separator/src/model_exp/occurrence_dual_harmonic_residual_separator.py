@@ -7,7 +7,7 @@ from typing import Any
 import torch
 from torch import nn
 
-from .occurrence_joint_tfc_tdf_separator import OccurrenceJointTFCTDFSeparator
+from notesep.models.occurrence_joint_tfc_tdf_separator import OccurrenceJointTFCTDFSeparator
 
 
 _CONTRACT_KIND = "occurrence_dual_harmonic_residual_separator_v1"
