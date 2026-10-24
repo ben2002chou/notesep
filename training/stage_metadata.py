@@ -11,7 +11,7 @@ from notesep.training_paths import relocated
 
 
 class PackedMetadataOverlay:
-    def __init__(self, archive, manifest, manifest_sha256, output):
+    def __init__(self, archive, manifest, manifest_sha256, output, *, blob_paths=None):
         manifest = Path(manifest)
         if hashlib.sha256(manifest.read_bytes()).hexdigest() != manifest_sha256:
             raise ValueError("Retired metadata catalogue changed")
@@ -33,6 +33,7 @@ class PackedMetadataOverlay:
         if len(names) != len(set(names)):
             raise ValueError("Duplicate archive members")
         self.staged = {}
+        self.blob_paths = blob_paths or {}
 
     def _isolate_worker(self):
         """Forked readers must not share seek offsets or staging directories."""
@@ -98,7 +99,8 @@ class PackedMetadataOverlay:
         for name in shards:
             if Path(name).name != name or name in {"manifest.sqlite", "COMPLETE.json"}:
                 raise ValueError("Unsafe archived shard name")
-            source = local / name
+            key = str(original.relative_to(root) / name)
+            source = Path(self.blob_paths[key]) if self.blob_paths else local / name
             if not source.is_file():
                 raise FileNotFoundError(source)
             (staged / name).symlink_to(source)

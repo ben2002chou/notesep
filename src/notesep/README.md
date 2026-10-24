@@ -90,6 +90,6 @@ pass its `saved_edits` to `render()` to apply the stored controls.
 | `project_archive.py` | Save and reopen editor projects as ZIP files. |
 | `source_archive.py` | Serve the editor source as a downloadable archive. |
 | `legal/` | License texts included with that source archive. |
-| `training_data.py` | Download or verify a packed training dataset and write its path map. |
+| `training_data.py` | Download and verify training data, restore compressed shards, and write local paths. |
 | `training_paths.py` | Resolve stored dataset locations on the current machine. |
 | `training_resume.py` | Check that an ASO resume uses the same data and recipe. |

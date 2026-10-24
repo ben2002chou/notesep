@@ -15,11 +15,21 @@ def apply_data_root(options):
     if manifest.get("component") != "original_notegrab_training_inputs":
         raise ValueError("--data-root needs the NoteGrab training package")
     paths = {row["path"]: row for row in manifest["files"]}
-    name = "packed-metadata-overlay/manifest.json"
+    metadata = manifest.get(
+        "packed_metadata",
+        {
+            "archive": "packed-metadata-overlay/payload.zip",
+            "manifest": "packed-metadata-overlay/manifest.json",
+        },
+    )
+    name = metadata["manifest"]
     options.path_map = root / "path-map.json"
-    options.packed_metadata_archive = root / "packed-metadata-overlay/payload.zip"
+    options.packed_metadata_archive = root / metadata["archive"]
     options.packed_metadata_manifest = root / name
     options.packed_metadata_manifest_sha256 = paths[name]["sha256"]
+    options.packed_blob_paths = {
+        name: root / path for name, path in metadata.get("blob_paths", {}).items()
+    }
 
 
 def main():
@@ -138,7 +148,9 @@ def main():
         from stage_metadata import PackedMetadataOverlay
 
         overlay = PackedMetadataOverlay(
-            *packed, options.output / "packed-metadata-overlay"
+            *packed,
+            options.output / "packed-metadata-overlay",
+            blob_paths=options.packed_blob_paths,
         )
         overlay.install(streaming)
     try:

@@ -31,6 +31,10 @@ def differences(actual, expected, path=""):
 
     changes = []
     for key in sorted(set(actual) | set(expected)):
+        # The release recipe omits descriptive model-version labels. Compare
+        # every architecture setting, but do not require those omitted labels.
+        if key == "contract_version" and key not in expected:
+            continue
         location = path + "/" + key
         if key not in actual or key not in expected:
             missing = "actual" if key not in actual else "expected"

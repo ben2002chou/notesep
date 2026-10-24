@@ -22,6 +22,28 @@ uv run notesep download-data --output /path/to/notegrab-data \
 
 The path map lets the training scripts find the data wherever you store it.
 
+The release package groups the data by its role:
+
+```text
+notesep-data/
+├── manifest.json
+├── synthetic/
+│   ├── index.sqlite       # Two million mixture/target training rows
+│   ├── shards/            # Audio blobs, distributed as .blob.gz
+│   ├── timing/            # Duration and acoustic note-end information
+│   ├── metadata.zip       # Per-shard lookup tables, opened by the loader
+│   └── sampling.json      # Training and validation row selection
+├── recorded/
+│   └── shards/            # Eight recorded-scene shards with their indexes
+└── example/               # One unpacked mixture, target, reference and labels
+```
+
+The setup command checks the download and restores `.blob.gz` files to their
+original float32 audio bytes. Compressed data occupies about 446 GB; the
+restored training data needs about 2.39 TB. Allow space for both during setup.
+The small `example/` folder is for listening and inspection; it is not a
+source-complete ASO training scene. ASO uses its own data and proposal cache.
+
 ## Run NoteGrab
 
 NoteGrab starts from the model checkpoint saved at training step 250. The recipe loads its weights and starts a new

@@ -19,6 +19,8 @@ import sqlite3
 from typing import Any, Callable, Iterable
 from urllib.parse import quote
 
+from notesep.training_paths import relocated
+
 import numpy as np
 
 
@@ -239,7 +241,9 @@ class PackedBlobShardWriter:
             raise ValueError("sample_id and kind must be nonempty")
         metadata_payload = dict(metadata or {})
         try:
-            metadata_json = json.dumps(metadata_payload, sort_keys=True, separators=(",", ":"))
+            metadata_json = json.dumps(
+                metadata_payload, sort_keys=True, separators=(",", ":")
+            )
         except TypeError as error:
             raise TypeError("Packed blob metadata must be JSON serializable") from error
         try:
@@ -256,7 +260,9 @@ class PackedBlobShardWriter:
                 ),
             )
         except sqlite3.IntegrityError as error:
-            raise ValueError(f"Duplicate packed asset: {(sample_id, kind)!r}") from error
+            raise ValueError(
+                f"Duplicate packed asset: {(sample_id, kind)!r}"
+            ) from error
         self._asset_count += 1
         self._payload_bytes += int(length_bytes)
         self._kind_counts[kind] += 1
@@ -375,7 +381,7 @@ class PackedBlobShardReader:
         require_complete: bool = True,
         buffer_bytes: int = 64 * 1024,
     ) -> None:
-        path = Path(manifest).expanduser().resolve()
+        path = relocated(manifest)
         self.index_path = path / "manifest.sqlite" if path.is_dir() else path
         self.root = self.index_path.parent
         self.buffer_bytes = int(buffer_bytes)
@@ -489,14 +495,18 @@ class PackedBlobShardReader:
             )
 
     def record(self, sample_id: str, kind: str) -> PackedBlobRecord:
-        row = self._db().execute(
-            """
+        row = (
+            self._db()
+            .execute(
+                """
             SELECT sample_id, kind, shard, offset_bytes, length_bytes, sha256,
                    metadata_json
             FROM assets WHERE sample_id = ? AND kind = ?
             """,
-            (str(sample_id), str(kind)),
-        ).fetchone()
+                (str(sample_id), str(kind)),
+            )
+            .fetchone()
+        )
         if row is None:
             raise KeyError((str(sample_id), str(kind)))
         return PackedBlobRecord(

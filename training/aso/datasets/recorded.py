@@ -99,7 +99,7 @@ class RecordedNaturalScoreSceneDataset(Dataset[dict[str, Any]]):
                 raise ValueError(f"scene root is not frozen-passed: {root}")
             record_kind = SCENE_KINDS_BY_FREEZE_SCHEMA[str(freeze["schema"])]
             manifest = dict(freeze["manifest"])
-            if sha256_file(Path(manifest["path"]).resolve()) != str(manifest["sha256"]):
+            if sha256_file(relocated(manifest["path"])) != str(manifest["sha256"]):
                 raise ValueError(f"scene manifest checksum mismatch: {root}")
             if sha256_file(root / "manifest.sqlite") != str(
                 freeze["packed_index"]["sha256"]

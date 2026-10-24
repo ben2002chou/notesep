@@ -3,14 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import re
+import tempfile
 from pathlib import Path, PurePosixPath
 
 
 def dataset_files(manifest: dict) -> list[tuple[PurePosixPath, int, str]]:
-    if manifest.get("schema") != "notesep_dataset_files_v1":
+    if manifest.get("schema") not in {
+        "notesep_dataset_files_v1",
+        "notesep_dataset_files_v2",
+    }:
         raise ValueError("Unknown dataset manifest")
     result = []
     seen = set()
@@ -36,6 +41,62 @@ def dataset_files(manifest: dict) -> list[tuple[PurePosixPath, int, str]]:
     if not result:
         raise ValueError("Empty dataset manifest")
     return result
+
+
+def restore(manifest: dict, output: Path) -> None:
+    """Restore compressed shards without changing their original audio bytes."""
+    destinations = set()
+    encoded_paths = {row["path"] for row in manifest["files"]}
+    for entry in manifest["files"]:
+        if entry.get("encoding", "identity") == "identity":
+            continue
+        if entry["encoding"] != "gzip":
+            raise ValueError(f"Unsupported dataset compression: {entry['encoding']}")
+        decoded = {
+            "schema": "notesep_dataset_files_v1",
+            "files": [
+                {
+                    "path": entry["decoded_path"],
+                    "bytes": entry["decoded_bytes"],
+                    "sha256": entry["decoded_sha256"],
+                }
+            ],
+        }
+        name, size, digest = dataset_files(decoded)[0]
+        if str(name) in destinations or str(name) in encoded_paths:
+            raise ValueError(f"Conflicting restored dataset path: {name}")
+        destinations.add(str(name))
+        target = output.joinpath(*name.parts)
+        if not target.resolve().is_relative_to(output.resolve()) or target.is_symlink():
+            raise ValueError(f"Invalid restored dataset path: {name}")
+        if target.exists():
+            verify(decoded, output)
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary_file = tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=target.parent,
+            prefix=target.name + ".",
+            suffix=".partial",
+            delete=False,
+        )
+        temporary = Path(temporary_file.name)
+        current = hashlib.sha256()
+        restored_bytes = 0
+        try:
+            with (
+                temporary_file as writer,
+                gzip.open(output / entry["path"], "rb") as reader,
+            ):
+                for block in iter(lambda: reader.read(8 << 20), b""):
+                    current.update(block)
+                    restored_bytes += len(block)
+                    writer.write(block)
+            if restored_bytes != size or current.hexdigest() != digest:
+                raise ValueError(f"Restored dataset checksum mismatch: {name}")
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def verify(manifest: dict, output: Path) -> int:
@@ -86,7 +147,7 @@ def write_path_map(manifest: dict, output: Path) -> Path | None:
         ):
             raise ValueError(f"Invalid dataset root: {relative}")
         destination = output.joinpath(*new.parts).resolve()
-        if not destination.is_relative_to(output) or not destination.is_dir():
+        if not destination.is_relative_to(output) or not destination.exists():
             raise ValueError(f"Missing dataset root: {relative}")
         mapping[str(old)] = str(destination)
     path = output / "path-map.json"
@@ -129,6 +190,7 @@ def prepare(
             allow_patterns=paths,
         )
     count = verify(manifest, output)
+    restore(manifest, output)
     path_map = write_path_map(manifest, output)
     return count, path_map
 

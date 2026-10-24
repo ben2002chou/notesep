@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import quote
 
+from notesep.training_paths import relocated
+
 import numpy as np
 
 FREEZE_SCHEMA = "literal_residual_musical_production_freeze_v1"
@@ -37,7 +39,7 @@ def _load_object(path: Path) -> dict[str, Any]:
 
 def _bound_path(root: Path, value: str | Path) -> Path:
     raw = Path(value).expanduser()
-    path = raw.resolve() if raw.is_absolute() else (root / raw).resolve()
+    path = relocated(raw if raw.is_absolute() else root / raw)
     if path != root and root not in path.parents:
         raise ValueError(f"Frozen binding escapes corpus root: {path}")
     return path
