@@ -131,7 +131,9 @@ def main():
         "overrides": overrides,
         "dry_run": options.dry_run,
     }
-    (options.output / "recipe.json").write_text(json.dumps(plan, indent=2) + "\n")
+    (options.output / "recipe.json").write_text(
+        json.dumps(plan, indent=2, default=str) + "\n"
+    )
     if options.dry_run:
         print(
             json.dumps({"status": "passed_preflight", "optimizer_updates": 0}),

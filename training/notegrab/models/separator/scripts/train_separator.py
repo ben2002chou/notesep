@@ -83,6 +83,18 @@ RECORDED_MIX_SCHEMA = "dna_residual_v13_recorded_mix_v1"
 OPTIMIZER_CHOICES = ("adam", "adamw")
 
 
+def normalized_checkpoint_loss_contract(contract: Any) -> Any:
+    """Compare the score-index identity after relocating its filesystem path."""
+    from notesep.training_paths import relocated
+
+    normalized = copy.deepcopy(contract)
+    if isinstance(normalized, dict):
+        gate = normalized.get("decomposition", {}).get("selective_gate")
+        if isinstance(gate, dict) and gate.get("score_index"):
+            gate["score_index"] = str(relocated(gate["score_index"]))
+    return normalized
+
+
 def normalized_checkpoint_model_contract(contract: Any) -> Any:
     """Normalize additive fields that were implicit in frozen old checkpoints."""
 
@@ -1600,7 +1612,9 @@ def restore_checkpoint(
         raise ValueError(
             "Resume checkpoint model contract differs from selected production model"
         )
-    if checkpoint.get("loss_contract") != active_loss_contract():
+    if normalized_checkpoint_loss_contract(
+        checkpoint.get("loss_contract")
+    ) != normalized_checkpoint_loss_contract(active_loss_contract()):
         raise ValueError("Resume checkpoint loss contract differs from free_target")
     if checkpoint.get("sampler_contract") != sampler_contract(args):
         raise ValueError("Resume checkpoint sampler contract changed")
@@ -1725,9 +1739,14 @@ def initialize_model_checkpoint(
         )
     source_loss_contract = checkpoint.get("loss_contract")
     target_loss_contract = active_loss_contract()
-    loss_contract_match = source_loss_contract == target_loss_contract
+    normalized_source_loss = normalized_checkpoint_loss_contract(source_loss_contract)
+    normalized_target_loss = normalized_checkpoint_loss_contract(target_loss_contract)
+    loss_contract_match = normalized_source_loss == normalized_target_loss
     if not loss_contract_match and not allow_loss_contract_change:
-        raise ValueError("Initialization checkpoint loss contract differs")
+        raise ValueError(
+            "Initialization checkpoint loss contract differs: "
+            f"{first_contract_difference(normalized_source_loss, normalized_target_loss)!r}"
+        )
     model.load_state_dict(checkpoint["model"], strict=True)
     return {
         "schema": (
