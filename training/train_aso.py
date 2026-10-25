@@ -24,11 +24,6 @@ def main():
         raise ValueError("Unknown configuration schema")
     if settings.get("mode") != "full":
         raise ValueError("The release entry point runs the full paper recipe")
-    if settings.get("release_successor"):
-        raise ValueError(
-            "Full training requires a proposal cache validated for the full "
-            "training schedule"
-        )
     source = ROOT / "training/aso"
     configure(args.path_map)
     paths = {
