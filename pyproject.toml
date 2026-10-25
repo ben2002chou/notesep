@@ -7,7 +7,7 @@ name = "notesep"
 version = "0.1.0"
 description = "Score-informed note separation and music editing"
 license = "AGPL-3.0-only"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 dependencies = [
   "numpy>=1.26,<2", "scipy>=1.10,<1.17", "soundfile>=0.13,<0.15",
   "mido>=1.3,<2", "torch>=2.3,<2.11", "einops>=0.8,<0.9",
@@ -20,7 +20,10 @@ studio = [
   "requests>=2.31,<3",
 ]
 baseline = ["scikit-learn>=1.5,<1.8"]
-train = ["hydra-core==1.3.2", "torchaudio>=2.3,<2.11"]
+train = [
+  "hydra-core==1.3.2", "torch==2.3.0", "torchaudio==2.3.0",
+  "numpy==1.26.4", "scipy==1.13.0", "soundfile==0.13.1",
+]
 
 [project.scripts]
 notesep = "notesep.cli:main"

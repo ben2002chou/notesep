@@ -11,7 +11,7 @@ and our score-informed NMF baseline.
 
 ## Installation
 
-Use Python 3.10 or newer and [uv](https://docs.astral.sh/uv/getting-started/installation/).
+Use Python 3.10–3.12 and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 Run these commands from the repository root:
 
 ```sh
@@ -138,6 +138,7 @@ It writes the same project format as neural inference.
 | [`src/notesep/`](src/notesep/README.md) | Inference, Python API, CLI, and editor. |
 | [`src/notesep/models/`](src/notesep/models/README.md) | Network layers shared by training and inference. |
 | `pyproject.toml`, `uv.lock` | Dependencies, package settings, and locked environment. |
+| `.python-version` | Python 3.11 selected by uv. |
 | `.gitignore` | Local data, environments, and generated output exclusions. |
 | `LICENSE`, `THIRD_PARTY_NOTICES.md` | Code license and notices for bundled code. |
 | `CITATION.cff` | Paper citation. |

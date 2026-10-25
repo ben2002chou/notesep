@@ -8,6 +8,9 @@ running a recipe:
 uv sync --extra train
 ```
 
+The training extra pins PyTorch 2.3.0 and the numerical libraries used by the
+verified runs. uv selects Python 3.11 from `.python-version`.
+
 ## Prepare the data
 
 The training dataset has not been published yet. The commands below require
