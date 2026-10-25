@@ -65,7 +65,9 @@ uv run python train.py stage=notegrab run.dir=outputs/notegrab \
 ## Run ASO
 
 ASO trains from scratch using complete mixtures, isolated targets and NoteGrab
-estimates. Download and restore the ASO data, then generate those estimates:
+estimates. Its download is about 71 GB; restored data occupies about 470 GB.
+Allow roughly 550 GB of free disk space for setup. Download and restore the
+data, then generate the estimates:
 
 ```sh
 uv run notesep download
