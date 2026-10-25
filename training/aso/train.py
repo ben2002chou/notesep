@@ -84,7 +84,6 @@ def proposal_cache_identity(root: Path) -> str:
         "crop_samples": 49152,
         "maximum_sources": 64,
         "query_microbatch": 4,
-        "maximum_mixtures": 0,
         "input_gate_policy": "lower_member_exact_octave",
         "payload_kind": dataset.KIND,
     }
@@ -102,6 +101,9 @@ def proposal_cache_identity(root: Path) -> str:
         g["proposals"] for g in groups.values()
     ):
         raise ValueError("ASO estimate verification is incomplete")
+    fingerprint = validation.get("content_sha256")
+    if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+        raise ValueError("ASO estimate content identity is missing")
     return identity
 
 

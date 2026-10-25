@@ -134,7 +134,7 @@ def infer_notes(
     return estimates
 
 
-def generate(data_root: Path, checkpoint: Path, output: Path, *, maximum_mixtures=0):
+def generate(data_root: Path, checkpoint: Path, output: Path):
     proposal, recorded = data_paths(data_root)
     if sha256(checkpoint) != CHECKPOINTS["separator.pt"]:
         raise ValueError("Use the released NoteGrab checkpoint")
@@ -160,7 +160,6 @@ def generate(data_root: Path, checkpoint: Path, output: Path, *, maximum_mixture
         "query_microbatch": 4,
         "input_gate_policy": "lower_member_exact_octave",
         "payload_kind": KIND,
-        "maximum_mixtures": maximum_mixtures,
     }
     config_path = output / "CONFIG.json"
     if config_path.exists() and json.loads(config_path.read_text()) != config:
@@ -191,9 +190,7 @@ def generate(data_root: Path, checkpoint: Path, output: Path, *, maximum_mixture
                 data = RecordedNaturalScoreSceneDataset([recorded], split=split)
                 population = len(data.scenes)
                 get_example = lambda index: recorded_example(data, index)
-            count = (
-                min(population, maximum_mixtures) if maximum_mixtures else population
-            )
+            count = population
             mixtures = sources = 0
             try:
                 for start in range(0, count, 8):
@@ -277,27 +274,29 @@ def generate(data_root: Path, checkpoint: Path, output: Path, *, maximum_mixture
     validation = config | {
         "status": "passed",
         "test_data_used": False,
-        "complete": maximum_mixtures == 0,
+        "complete": True,
         "groups": groups,
         "config_sha256": identity,
     }
     # A failed or interrupted validation must never leave a passed marker.
     (output / "VALIDATION.json").unlink(missing_ok=True)
+    print("Checking saved note estimates...", flush=True)
     checked = 0
+    content = hashlib.sha256()
     for banks in sorted(output.glob("*/*/tasks/task-*/units/unit-*/banks.jsonl")):
         marker = json.loads((banks.parent / "UNIT_COMPLETE.json").read_text())
         if marker["banks_sha256"] != sha256(banks):
             raise ValueError("Estimate metadata changed")
+        content.update(marker["banks_sha256"].encode())
         with PackedBlobShardReader(banks.parent / "packed") as reader:
             for line in banks.read_text().splitlines():
                 row = json.loads(line)
                 for identifier in row["proposal_ids"]:
                     payload = reader.read_bytes(identifier, KIND)
-                    if (
-                        hashlib.sha256(payload).hexdigest()
-                        != reader.record(identifier, KIND).sha256
-                    ):
+                    checksum = hashlib.sha256(payload).hexdigest()
+                    if checksum != reader.record(identifier, KIND).sha256:
                         raise ValueError("Serialized estimate checksum changed")
+                    content.update(checksum.encode())
                     values = np.frombuffer(payload, dtype="<f2")
                     if len(values) != row["samples"] or not np.isfinite(values).all():
                         raise ValueError(
@@ -307,6 +306,8 @@ def generate(data_root: Path, checkpoint: Path, output: Path, *, maximum_mixture
     if checked != sum(group["proposals"] for group in groups.values()):
         raise ValueError("Estimate payload coverage changed")
     validation["payloads_verified"] = checked
+    # Bind training resume to the actual estimate values and row geometry.
+    validation["content_sha256"] = content.hexdigest()
     write_json(output / "VALIDATION.json", validation)
     return validation
 
@@ -320,7 +321,10 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = generate(args.data_root, args.checkpoint, args.output)
-    print(json.dumps(result, indent=2))
+    mixtures = sum(group["mixtures"] for group in result["groups"].values())
+    print(
+        f"Prepared {mixtures} mixtures and {result['payloads_verified']} note estimates in {args.output}."
+    )
 
 
 if __name__ == "__main__":
