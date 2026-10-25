@@ -38,15 +38,22 @@ def main(cfg: DictConfig) -> None:
             required_path(cfg.data.root, "data.root"),
         ]
     elif cfg.stage == "aso":
+        data_root = Path(required_path(cfg.data.root, "data.root"))
+        manifest = json.loads((data_root / "manifest.json").read_text())
+        if manifest.get("component") != "aso_training_inputs":
+            raise ValueError("data.root must point to the prepared ASO package")
+        inputs = {}
+        for name in ("fresh_index", "recorded_root"):
+            path = (data_root / manifest["training"][name]).resolve()
+            if not path.is_relative_to(data_root):
+                raise ValueError("ASO input must stay inside its data package")
+            inputs[name] = str(path)
         settings = {
             "schema": "notesep_aso_training_config_v1",
             "arm": "acoustic_multiplicative",
             "mode": "full",
             "seed": int(cfg.training.seed),
-            "fresh_index": required_path(cfg.data.fresh_index, "data.fresh_index"),
-            "recorded_root": required_path(
-                cfg.data.recorded_root, "data.recorded_root"
-            ),
+            **inputs,
             "proposal_root": required_path(
                 cfg.data.proposal_root, "data.proposal_root"
             ),
@@ -61,11 +68,7 @@ def main(cfg: DictConfig) -> None:
             "--output",
             run,
         ]
-        if cfg.data.path_map:
-            command += [
-                "--path-map",
-                required_path(cfg.data.path_map, "data.path_map"),
-            ]
+        command += ["--path-map", str(data_root / "path-map.json")]
     else:
         raise ValueError(f"Unknown training stage: {cfg.stage}")
     if cfg.run.dry_run:

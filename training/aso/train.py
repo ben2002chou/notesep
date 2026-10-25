@@ -46,6 +46,7 @@ FRESH_AUTHORITY_SHA256 = (
     "711659391e8f93849e0f2595061003fed584fef47d54526684e92a595ed203eb"
 )
 RECORDED_SHA256 = "24c30535b171b19a6ce06b29d886aece2f1cd65d7828f4f719c928df5ea534c7"
+PROPOSAL_INDEX_SHA256 = "215bb4f714e3bc45f867c341a5589cd286049f54a4d66ad6853ab71e68fd334b"
 PROPOSAL_VALIDATION_SHA256 = (
     "7070a58fb977c14eb8fd1139cf300f848d39373bb460c74db49afe9e0c64cb82"
 )
@@ -59,6 +60,49 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(8 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def proposal_cache_identity(root: Path) -> str:
+    """Accept the historical cache or a complete cache generated from released inputs."""
+    validation_path = root / "VALIDATION.json"
+    identity = sha256(validation_path)
+    validation = json.loads(validation_path.read_text())
+    if validation.get("schema") != "notesep_aso_proposals_v1":
+        if identity != PROPOSAL_VALIDATION_SHA256:
+            raise ValueError("proposal cache validation hash mismatch")
+        return identity
+    from notesep.assets import CHECKPOINTS
+
+    expected = {
+        "status": "passed",
+        "test_data_used": False,
+        "complete": True,
+        "separator_sha256": CHECKPOINTS["separator.pt"],
+        "fresh_index_sha256": FRESH_SHA256,
+        "proposal_index_sha256": PROPOSAL_INDEX_SHA256,
+        "recorded_freeze_sha256": RECORDED_SHA256,
+        "crop_samples": 49152,
+        "maximum_sources": 64,
+        "query_microbatch": 4,
+        "maximum_mixtures": 0,
+        "input_gate_policy": "lower_member_exact_octave",
+        "payload_kind": dataset.KIND,
+    }
+    for name, value in expected.items():
+        if validation.get(name) != value:
+            raise ValueError("ASO estimate validation differs: " + name)
+    if validation.get("config_sha256") != sha256(root / "CONFIG.json"):
+        raise ValueError("ASO estimate settings changed after validation")
+    groups = validation.get("groups", {})
+    if set(groups) != {
+        f"{k}:{s}" for k in ("fresh", "recorded") for s in ("train", "validation")
+    }:
+        raise ValueError("ASO estimates must cover both train and validation sources")
+    if validation.get("payloads_verified") != sum(
+        g["proposals"] for g in groups.values()
+    ):
+        raise ValueError("ASO estimate verification is incomplete")
+    return identity
 
 
 def request_stop(_signum: int, _frame: object) -> None:
@@ -99,6 +143,29 @@ class AcousticAuthorities(dataset.Authorities):
             split: RecordedNaturalScoreSceneDataset([recorded_root], split=split)
             for split in ("train", "validation")
         }
+        # A generated cache is complete only if it covers the actual data IDs.
+        validation = json.loads((cache.root / "VALIDATION.json").read_text())
+        if validation.get("schema") == "notesep_aso_proposals_v1":
+            for kind in ("fresh", "recorded"):
+                for split in ("train", "validation"):
+                    wanted = set(self.ids(kind, split))
+                    actual = {
+                        mid for k, s, mid in cache.entries
+                        if (k, s) == (kind, split)
+                    }
+                    if actual != wanted:
+                        raise ValueError(f"Incomplete ASO estimates for {kind}/{split}")
+                    group = validation["groups"][f"{kind}:{split}"]
+                    sources = sum(
+                        len(cache.entries[(kind, split, mid)]["proposal_ids"])
+                        for mid in actual
+                    )
+                    if (
+                        group["mixtures"] != len(wanted)
+                        or group["population"] != len(wanted)
+                        or group["proposals"] != sources
+                    ):
+                        raise ValueError(f"ASO estimate counts changed for {kind}/{split}")
 
 
 def call(model: TemporalHybridSetOwnership, record: dict[str, Any]):
@@ -206,9 +273,7 @@ def main() -> int:
         dataset.forbid_test_path(path)
     if args.output.exists() and not (args.output / "RESUME.pt").exists():
         raise FileExistsError(args.output)
-    proposal_validation_sha256 = PROPOSAL_VALIDATION_SHA256
-    if sha256(args.proposal_root / "VALIDATION.json") != proposal_validation_sha256:
-        raise ValueError("proposal cache validation hash mismatch")
+    proposal_validation_sha256 = proposal_cache_identity(args.proposal_root)
     args.output.mkdir(parents=True, exist_ok=True)
 
     signal.signal(signal.SIGUSR1, request_stop)

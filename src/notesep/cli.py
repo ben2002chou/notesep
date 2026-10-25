@@ -16,7 +16,7 @@ def main(argv=None):
         item = sub.add_parser(command, help=help_text)
         item.add_argument("--profile", choices=list(PROFILES))
     training_data = sub.add_parser(
-        "download-data", help="Download and verify training data"
+        "download-data", help="Download and verify a NoteSep dataset"
     )
     training_data.add_argument("--output", type=Path, required=True)
     training_data.add_argument("--repo-id", help="Hugging Face dataset repository")
@@ -86,7 +86,7 @@ def main(argv=None):
                 f"Verified {count} dataset files in {args.output.expanduser().resolve()}"
             )
             if path_map is not None:
-                print(f"Training path map: {path_map}")
+                print(f"Data path map: {path_map}")
         elif args.command == "separate":
             bank = NoteSep(args.device, profile=args.profile).separate(
                 args.audio,

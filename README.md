@@ -66,18 +66,37 @@ uv run python train.py stage=notegrab run.dir=outputs/notegrab \
   data.initialization=checkpoints/0441537c.pt
 ```
 
-**ASO:** train from scratch using the audio and cached NoteGrab estimates:
+**ASO:** download its complete-source data, generate NoteGrab estimates, then train:
 
 ```sh
+uv run notesep download
+uv run notesep download-data --repo-id ben2002chou/notesep-aso-data --output data/aso
+uv run python training/prepare_aso.py --data-root data/aso --output data/proposals
 uv run python train.py stage=aso run.dir=outputs/aso \
-  data.fresh_index=/path/to/fresh-index.json \
-  data.recorded_root=/path/to/recorded-data \
-  data.proposal_root=/path/to/proposal-data
+  data.root=data/aso data.proposal_root=data/proposals
 ```
 
-Training uses CUDA and [Hydra configs](configs/README.md). The packed training
+Training uses CUDA and [Hydra configs](configs/README.md). The packed NoteGrab training
 dataset is not yet published; these commands require a local copy. See the
 [training guide](training/README.md) for data preparation and checkpoint outputs.
+
+## Datasets
+
+Training and evaluation are separate downloads. NoteGrab uses mixture/target
+pairs; ASO uses complete groups of isolated notes. The [training guide](training/README.md)
+describes their layouts and setup.
+
+[SCNS-Eval and SCNS-Edit](https://huggingface.co/datasets/ben2002chou/notesep-benchmarks)
+share 144 recordings and 3,473 isolated note references:
+
+```sh
+uv run notesep download-data --repo-id ben2002chou/notesep-benchmarks --output data/benchmark
+```
+
+`evaluation.json` describes note requests and scoring crops. `editing.json`
+contains the fixed gain, pitch, timing and tuning edits. Each `pieces/` folder
+has its mixture, aligned score and isolated-note archive. Keep this benchmark
+out of training.
 
 ## Editing notes
 

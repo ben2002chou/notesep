@@ -162,8 +162,13 @@ def prepare(
     revision: str | None = None,
     manifest_path: Path | None = None,
 ) -> tuple[int, Path | None]:
-    if manifest_path is None and (not repo_id or not revision):
-        raise ValueError("Provide --manifest, or both --repo-id and --revision")
+    if manifest_path is None and not repo_id:
+        raise ValueError("Provide --manifest or --repo-id")
+    if manifest_path is None and revision is None:
+        from huggingface_hub import HfApi
+
+        # Resolve once, then pin every download to the same dataset commit.
+        revision = HfApi().repo_info(repo_id, repo_type="dataset").sha
     if repo_id and not re.fullmatch(r"[0-9a-f]{40}", revision or ""):
         raise ValueError("--revision must be a 40-character dataset commit")
     output = output.expanduser().resolve()

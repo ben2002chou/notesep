@@ -64,15 +64,23 @@ uv run python train.py stage=notegrab run.dir=outputs/notegrab \
 
 ## Run ASO
 
-ASO trains from scratch. Its inputs are an index of synthesized examples,
-recorded audio, and precomputed note proposals:
+ASO trains from scratch using complete mixtures, isolated targets and NoteGrab
+estimates. Download and restore the ASO data, then generate those estimates:
 
 ```sh
+uv run notesep download
+uv run notesep download-data --repo-id ben2002chou/notesep-aso-data --output data/aso
+uv run python training/prepare_aso.py --data-root data/aso --output data/proposals
 uv run python train.py stage=aso run.dir=outputs/aso \
-  data.fresh_index=/path/to/fresh-index.json \
-  data.recorded_root=/path/to/recorded-data \
-  data.proposal_root=/path/to/proposal-data
+  data.root=data/aso data.proposal_root=data/proposals
 ```
+
+Estimate generation uses the released NoteGrab checkpoint downloaded by
+`notesep download`. It runs on a CUDA GPU, resumes completed units, and checks
+every stored estimate before training can use the cache. The data package
+contains both the NoteGrab query index and ASO's measured acoustic endpoint
+index; setup selects each automatically. Estimates are generated for the train
+and validation selections only.
 
 Use `uv run python train.py --cfg job` to inspect the selected settings. Data
 files are checked against the manifests in the package.
@@ -103,6 +111,7 @@ one trainer by the launcher. They are not separate training recipes.
 | `validate_notegrab.py` | Checks the saved NoteGrab recipe and runtime components. |
 | `stage_metadata.py` | Installs packed metadata while reading audio shards in place. |
 | `download_initial_checkpoint.py` | Downloads and verifies the NoteGrab starting checkpoint. |
+| `prepare_aso.py` | Generates and checks NoteGrab estimates for ASO. |
 | `train_aso.py` | Validates ASO inputs and launches its training recipe. |
 | `run_aso_training.py` | Applies and records the ASO numerical runtime settings. |
 | `aso/` | ASO model, data, and training implementation. |

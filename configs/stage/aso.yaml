@@ -1,9 +1,7 @@
 # @package _global_
 stage: aso
 data:
-  path_map: null
-  fresh_index: ???
-  recorded_root: ???
+  root: ???
   proposal_root: ???
 training:
   seed: 20260909
