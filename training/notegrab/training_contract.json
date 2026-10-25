@@ -12,6 +12,7 @@
     "grad_clip": 5.0,
     "initialize_allow_loss_contract_change": false,
     "initialize_allow_output_carrier_mode_change": false,
+    "keep_checkpoint_every": 2500,
     "lead_samples": 4000,
     "learning_rate": 2e-06,
     "log_every": 20,

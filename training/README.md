@@ -92,8 +92,10 @@ files are checked against the manifests in the package.
 
 ## Outputs and implementation
 
-NoteGrab writes `training/checkpoints/latest.pt` under `run.dir`, along with its
-resolved recipe and training log. ASO writes `RESUME.pt` for automatic resume,
+NoteGrab runs for 5,000 updates. It keeps the paper endpoint at
+`training/checkpoints/step-000002500.pt` and the final checkpoint at
+`training/checkpoints/latest.pt` under `run.dir`, along with the resolved recipe
+and training log. ASO writes `RESUME.pt` for automatic resume,
 intermediate `checkpoint-step-*.pt` files, and development results under
 `run.dir`. Use a new output directory for each NoteGrab run.
 
