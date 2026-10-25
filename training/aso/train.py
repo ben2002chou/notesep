@@ -47,9 +47,6 @@ FRESH_AUTHORITY_SHA256 = (
 )
 RECORDED_SHA256 = "24c30535b171b19a6ce06b29d886aece2f1cd65d7828f4f719c928df5ea534c7"
 PROPOSAL_INDEX_SHA256 = "215bb4f714e3bc45f867c341a5589cd286049f54a4d66ad6853ab71e68fd334b"
-PROPOSAL_VALIDATION_SHA256 = (
-    "7070a58fb977c14eb8fd1139cf300f848d39373bb460c74db49afe9e0c64cb82"
-)
 STOP = False
 FINAL_ARM = "acoustic_multiplicative"
 
@@ -63,14 +60,12 @@ def sha256(path: Path) -> str:
 
 
 def proposal_cache_identity(root: Path) -> str:
-    """Accept the historical cache or a complete cache generated from released inputs."""
+    """Check the complete estimate cache generated from the released inputs."""
     validation_path = root / "VALIDATION.json"
     identity = sha256(validation_path)
     validation = json.loads(validation_path.read_text())
     if validation.get("schema") != "notesep_aso_proposals_v1":
-        if identity != PROPOSAL_VALIDATION_SHA256:
-            raise ValueError("proposal cache validation hash mismatch")
-        return identity
+        raise ValueError("Generate ASO estimates with training/prepare_aso.py")
     from notesep.assets import CHECKPOINTS
 
     expected = {
