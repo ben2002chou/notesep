@@ -48,6 +48,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--path-map", type=Path)
+    parser.add_argument(
+        "--recipe", choices=("parent", "continuation"), default="continuation"
+    )
     args = parser.parse_args()
     if args.output is not None and args.output.exists():
         raise FileExistsError(args.output)
@@ -55,7 +58,10 @@ def main():
     from notesep.training_paths import configure, relocated
 
     configure(args.path_map)
-    contract_path = ROOT / "training/notegrab/training_contract.json"
+    filename = (
+        "parent_contract.json" if args.recipe == "parent" else "training_contract.json"
+    )
+    contract_path = ROOT / "training/notegrab" / filename
     if args.output is None:
         raise ValueError("--output is required for the full component check")
     contract = json.loads(contract_path.read_text())
@@ -73,21 +79,28 @@ def main():
         OCCURRENCE_FULL_SCORE_INDEX=str(relocated(gate["score_index"])),
         REAL_EXAMPLE_FRACTION=str(contract["arguments"]["real_example_fraction"]),
         MAX_STEPS=str(contract["arguments"]["max_steps"]),
-        SCNS_MINIMUM_REAL_EXAMPLE_FRACTION=str(
-            contract["arguments"]["real_example_fraction"]
-        ),
-        SCNS_MAXIMUM_REAL_EXAMPLE_FRACTION=str(
-            contract["arguments"]["real_example_fraction"]
-        ),
-        SCNS_V3_COMBINED_INSTRUMENT_COVERAGE_AUTHORITY=str(
-            relocated(contract["sampler_contract"]["aggregate_16_coverage_authority"])
-        ),
     )
-    sys.path.insert(0, str(DATA / "scripts"))
-    import parent_balanced_training as entry
-
-    base = entry.trainer
-    selective = entry.selective
+    if args.recipe == "parent":
+        # The original 30k run predates the recorded-data sampler wrappers.
+        sys.path[:0] = [
+            str(MODELS / "gating/src"), str(MODELS / "separator/src"),
+            str(MODELS / "separator"),
+        ]
+        import model_exp  # Load the gating package before the trainer adds its paths.
+        import scripts.train_notegrab_separator as selective
+        base = selective.base
+    else:
+        os.environ.update(
+            SCNS_MINIMUM_REAL_EXAMPLE_FRACTION=str(contract["arguments"]["real_example_fraction"]),
+            SCNS_MAXIMUM_REAL_EXAMPLE_FRACTION=str(contract["arguments"]["real_example_fraction"]),
+            SCNS_V3_COMBINED_INSTRUMENT_COVERAGE_AUTHORITY=str(
+                relocated(contract["sampler_contract"]["aggregate_16_coverage_authority"])
+            ),
+        )
+        sys.path.insert(0, str(DATA / "scripts"))
+        import parent_balanced_training as entry
+        base = entry.trainer
+        selective = entry.selective
     # Historical JSON serializes argparse Path values as strings.
     arguments = dict(contract["arguments"])
     for key in [
@@ -124,8 +137,12 @@ def main():
         name: differences(value, mapped(contract[name]))
         for name, value in observed.items()
     }
+    sampler = (
+        base.ResumeSafeAudioBudgetBatchSampler if args.recipe == "parent"
+        else base.DeterministicMixedBatchSampler
+    )
     resolved = {
-        "sampler": inspect.getsourcefile(base.DeterministicMixedBatchSampler),
+        "sampler": inspect.getsourcefile(sampler),
         "gate": inspect.getsourcefile(selective.lower_member_exact_octave_gate),
         "augmentation": inspect.getsourcefile(selective.apply_occurrence_augmentation),
         "base": base.__file__,

@@ -32,12 +32,21 @@ def main(cfg: DictConfig) -> None:
             str(ROOT / "training/train_notegrab.py"),
             "--output",
             run,
-            "--initialize-checkpoint",
-            required_path(cfg.data.initialization, "data.initialization"),
+            "--recipe",
+            cfg.training.recipe,
             "--data-root",
             required_path(cfg.data.root, "data.root"),
         ]
+        if cfg.run.resume:
+            command.append("--resume")
+        elif cfg.training.recipe == "continuation":
+            command += [
+                "--initialize-checkpoint",
+                required_path(cfg.data.initialization, "data.initialization"),
+            ]
     elif cfg.stage == "aso":
+        if cfg.run.resume:
+            raise ValueError("run.resume is supported for NoteGrab training")
         data_root = Path(required_path(cfg.data.root, "data.root"))
         manifest = json.loads((data_root / "manifest.json").read_text())
         if manifest.get("component") != "aso_training_inputs":

@@ -3,4 +3,5 @@ stage: notegrab
 data:
   root: ???
   initialization: ???
-training: {}
+training:
+  recipe: continuation

@@ -5,6 +5,7 @@ defaults:
 run:
   dir: ???
   dry_run: false
+  resume: false
 
 hydra:
   job:

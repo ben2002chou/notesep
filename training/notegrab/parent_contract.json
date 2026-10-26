@@ -1,0 +1,414 @@
+{
+  "model_contract": {
+    "kind": "occurrence_dual_hpss_separator_v1",
+    "contract_version": 5,
+    "preset": "30m",
+    "architecture": {
+      "layout": "symmetric_low_resolution_aligned_hpss_harmonic_and_percussive_branches",
+      "merge": "waveform_sum",
+      "harmonic_branch": {
+        "kind": "occurrence_ownership_tfc_tdf_separator_v1",
+        "contract_version": 2,
+        "preset": "30m",
+        "config": {
+          "n_fft": 1024,
+          "hop_length": 128,
+          "sample_rate": 16000,
+          "processed_frequency_bins": 512,
+          "num_subbands": 4,
+          "num_scales": 5,
+          "num_blocks_per_scale": 2,
+          "initial_channels": 64,
+          "growth": 64,
+          "tdf_bottleneck_factor": 4,
+          "conditioning_channels": 32,
+          "pitch_embed_dim": 16,
+          "bands": 24,
+          "minimum_log_frequency": 31.25,
+          "band_radius": 1.0,
+          "band_scale_floor_ratio": 0.001,
+          "maximum_correction_scale": 2.0
+        },
+        "architecture": {
+          "trunk": "shared_sdx23_tfc_tdf_v3",
+          "conditioning_arm": "g2_film",
+          "head_layout": "independent_target_and_background_complex_heads",
+          "head_hidden_channels": 64,
+          "head_output_channels_each": 8,
+          "head_final_projection_init": "zeros",
+          "activation_checkpointing": true,
+          "ownership_head": "sigmoid_magnitude_ratio_plus_free_complex_residuals",
+          "ownership_head_initial_bias": -2.0
+        },
+        "inputs": {
+          "audio_sources": [
+            "mixture"
+          ],
+          "query": [
+            "pitch",
+            "onset_sample",
+            "offset_sample"
+          ],
+          "compatibility_signature": true,
+          "ignored_audio_slots": [
+            "dna",
+            "other_dna",
+            "unassigned_residual"
+          ],
+          "internal_source_slots": "mixture_plus_three_zero_slots",
+          "normalization": "valid_mixture_rms_floor_1e-4"
+        },
+        "conditioning": {
+          "type": "rt2_25hz_target_only_roll_plus_multiscale_film",
+          "score_channels": [
+            "target_harmonic_held",
+            "onset",
+            "post_offset_harmonic_uncertainty",
+            "unused_3",
+            "unused_4"
+          ],
+          "pitch_embedding_dim": 16,
+          "conditioning_channels": 32,
+          "harmonic_count": 60,
+          "harmonic_gaussian_bandwidth_hz": 7.5,
+          "onset_region_samples": 1600,
+          "release_region_samples": 4000,
+          "absent_occurrence": "offset_equals_onset_with_zero_harmonic_activity"
+        },
+        "spectra": {
+          "stft_center": true,
+          "stft_window": "periodic_hann",
+          "processed_frequency_bins": 512,
+          "unprocessed_frequency_policy": "target_zero_background_mixture_passthrough",
+          "unsupported_frame_policy": "target_zero_background_mixture_passthrough",
+          "raw_parameterization": "mixture_partition_from_ownership_plus_two_unbounded_complex_residuals",
+          "projection": "orthogonal_equal_correction_per_bin",
+          "projection_equation": "s=(mix-raw_target-raw_background)/2"
+        },
+        "outputs": {
+          "primary": "target_waveform_istft",
+          "background": "background_waveform_istft",
+          "diagnostics": [
+            "raw_target_spectrum",
+            "raw_background_spectrum",
+            "projected_target_spectrum",
+            "projected_background_spectrum",
+            "projected_spectrum_reconstruction",
+            "target",
+            "background",
+            "waveform_reconstruction",
+            "ownership_logits",
+            "ownership_mask"
+          ],
+          "mixture_consistency": "projected_target_plus_background_equals_mixture_complex_stft"
+        },
+        "dna_conditioning": false,
+        "residual_prediction": false,
+        "parameter_count": 27414580
+      },
+      "percussive_branch": {
+        "kind": "occurrence_ownership_tfc_tdf_separator_v1",
+        "contract_version": 2,
+        "preset": "30m",
+        "config": {
+          "n_fft": 1024,
+          "hop_length": 128,
+          "sample_rate": 16000,
+          "processed_frequency_bins": 512,
+          "num_subbands": 4,
+          "num_scales": 5,
+          "num_blocks_per_scale": 2,
+          "initial_channels": 64,
+          "growth": 64,
+          "tdf_bottleneck_factor": 4,
+          "conditioning_channels": 32,
+          "pitch_embed_dim": 16,
+          "bands": 24,
+          "minimum_log_frequency": 31.25,
+          "band_radius": 1.0,
+          "band_scale_floor_ratio": 0.001,
+          "maximum_correction_scale": 2.0
+        },
+        "architecture": {
+          "trunk": "shared_sdx23_tfc_tdf_v3",
+          "conditioning_arm": "g2_film",
+          "head_layout": "independent_target_and_background_complex_heads",
+          "head_hidden_channels": 64,
+          "head_output_channels_each": 8,
+          "head_final_projection_init": "zeros",
+          "activation_checkpointing": true,
+          "ownership_head": "sigmoid_magnitude_ratio_plus_free_complex_residuals",
+          "ownership_head_initial_bias": -2.0
+        },
+        "inputs": {
+          "audio_sources": [
+            "mixture"
+          ],
+          "query": [
+            "pitch",
+            "onset_sample",
+            "offset_sample"
+          ],
+          "compatibility_signature": true,
+          "ignored_audio_slots": [
+            "dna",
+            "other_dna",
+            "unassigned_residual"
+          ],
+          "internal_source_slots": "mixture_plus_three_zero_slots",
+          "normalization": "valid_mixture_rms_floor_1e-4"
+        },
+        "conditioning": {
+          "type": "rt2_25hz_target_only_roll_plus_multiscale_film",
+          "score_channels": [
+            "target_harmonic_held",
+            "onset",
+            "post_offset_harmonic_uncertainty",
+            "unused_3",
+            "unused_4"
+          ],
+          "pitch_embedding_dim": 16,
+          "conditioning_channels": 32,
+          "harmonic_count": 60,
+          "harmonic_gaussian_bandwidth_hz": 7.5,
+          "onset_region_samples": 1600,
+          "release_region_samples": 4000,
+          "absent_occurrence": "offset_equals_onset_with_zero_harmonic_activity"
+        },
+        "spectra": {
+          "stft_center": true,
+          "stft_window": "periodic_hann",
+          "processed_frequency_bins": 512,
+          "unprocessed_frequency_policy": "target_zero_background_mixture_passthrough",
+          "unsupported_frame_policy": "target_zero_background_mixture_passthrough",
+          "raw_parameterization": "mixture_partition_from_ownership_plus_two_unbounded_complex_residuals",
+          "projection": "orthogonal_equal_correction_per_bin",
+          "projection_equation": "s=(mix-raw_target-raw_background)/2"
+        },
+        "outputs": {
+          "primary": "target_waveform_istft",
+          "background": "background_waveform_istft",
+          "diagnostics": [
+            "raw_target_spectrum",
+            "raw_background_spectrum",
+            "projected_target_spectrum",
+            "projected_background_spectrum",
+            "projected_spectrum_reconstruction",
+            "target",
+            "background",
+            "waveform_reconstruction",
+            "ownership_logits",
+            "ownership_mask"
+          ],
+          "mixture_consistency": "projected_target_plus_background_equals_mixture_complex_stft"
+        },
+        "dna_conditioning": false,
+        "residual_prediction": false,
+        "parameter_count": 27414580
+      },
+      "harmonic_parameterization": "ownership",
+      "percussive_parameterization": "ownership",
+      "output_carrier_mode": "ungated_hpss",
+      "communication": {
+        "type": "simultaneous_bidirectional_cross_attention",
+        "rungs": [
+          "deep_encoder",
+          "bottleneck",
+          "deep_decoder"
+        ],
+        "attention_heads": 8,
+        "direction_parameters": "untied",
+        "output_projection_initialization": "zeros",
+        "message_fusion": "residual_add",
+        "snapshot_policy": "both_directions_read_same_pre_fusion_states"
+      }
+    },
+    "inputs": {
+      "harmonic_branch": "HPSS harmonic mixture",
+      "percussive_branch": "ordinary margin-1 HPSS percussive mixture",
+      "query": [
+        "pitch",
+        "onset_sample",
+        "offset_sample"
+      ],
+      "harmonic_encoder_evidence": "pitch-gated HPSS harmonic mixture",
+      "harmonic_output_carrier": "ungated HPSS harmonic mixture",
+      "percussive_output_carrier": "ungated HPSS percussive mixture"
+    },
+    "outputs": {
+      "harmonic": "HPSS harmonic target estimate",
+      "percussive": "ordinary margin-1 HPSS percussive target estimate",
+      "primary": "harmonic plus percussive target estimate",
+      "background": "exact branch-carrier complements summing to original mixture"
+    },
+    "dna_conditioning": false,
+    "parameter_count": 57667688,
+    "harmonic_gate": {
+      "mode": "below_f0_input_only",
+      "application": [
+        "encoder_evidence"
+      ],
+      "below_f0_cutoff_hz": null,
+      "percussive_component": "unchanged ordinary margin-1 HPSS percussive"
+    },
+    "conditioning": {
+      "type": "rt2_25hz_target_only_roll",
+      "states": [
+        "off",
+        "held",
+        "onset"
+      ],
+      "explicit_lifecycle_labels": false,
+      "signed_offset_distance": false,
+      "training_positive_hold_ms": [
+        0.0,
+        0.0
+      ],
+      "evaluation_positive_hold_ms": 0.0
+    }
+  },
+  "loss_contract": {
+    "name": "dual_harmonic_percussive_target_ownership_v1",
+    "task": "direct_occurrence_dual_harmonic_percussive",
+    "branch_source_losses": {
+      "harmonic": 0.25,
+      "percussive": 0.5
+    },
+    "combined_effective_target_loss": 0.25,
+    "complex_weight": 1.0,
+    "complex_error_cap": 0.0,
+    "log_magnitude_weight": 0.5,
+    "waveform_weight": 0.2,
+    "envelope_weight": 0.2,
+    "phase_coherence_weight": 0.0,
+    "do_no_harm_weight": 0.0,
+    "correction_weight": 0.0,
+    "dna_conditioning": false,
+    "decomposition_device": "cuda",
+    "decomposition": {
+      "type": "ordinary_hpss_harmonic_and_percussive",
+      "kernel_size": 31,
+      "power": 2.0,
+      "margin": 1.0,
+      "percussive": "exact waveform complement target-H_hpss(target)",
+      "explicit_residual_removal": false,
+      "reconstruction": "predicted_harmonic+predicted_percussive",
+      "harmonic_gate": "below_f0_input_only",
+      "input_gate_probability": 1.0,
+      "input_gate_policy": "lower_member_exact_octave",
+      "selective_gate": {
+        "relation": "target_is_lower_member_of_exact_octave_pair",
+        "competitor_semitones": 12,
+        "minimum_overlap_samples": 1280,
+        "minimum_overlap_fraction_of_shorter_note": 0.25,
+        "score_index": "/note-sep-data/synthetic/indexes/tfc_score_condition_v1.sqlite",
+        "score_index_sha256": "730406847e80da9ce5fcbf01f5faf8b594eef73126040e3548bcc9e374a8f7be"
+      },
+      "input_gate_sampling": "deterministic_score_directional",
+      "percussive_component_after_gate": "unchanged",
+      "percussive_parameterization": "ownership",
+      "output_carrier_mode": "ungated_hpss",
+      "backbone": "tfc_tdf",
+      "percussive_phase_policy": "learned_complex_residual_plus_ownership",
+      "optimized_sum_target": "ungated_hpss_harmonic_target+ordinary_hpss_percussive_target"
+    },
+    "branch_ownership_weights": {
+      "harmonic": 0.5,
+      "percussive": 0.5
+    },
+    "training_augmentation": {
+      "type": "coherent_occurrence_waveform_robustness_v2",
+      "gain_probability": 0.8,
+      "gain_db_limit": 6.0,
+      "pitch_shift_probability": 0.25,
+      "pitch_shift_semitones_limit": 2,
+      "detune_probability": 0.35,
+      "detune_cents_limit": 20.0,
+      "linear_echo_probability": 0.25,
+      "linear_echo_wet_limit": 0.16,
+      "linear_echo_delay_ms_min": 4.0,
+      "linear_echo_delay_ms_max": 24.0,
+      "noise_probability": 0.35,
+      "noise_snr_db_min": 20.0,
+      "noise_snr_db_max": 40.0,
+      "sample_rate": 16000,
+      "gain_policy": "same_per_example_gain_for_mixture_and_all_sources",
+      "detune_policy": "batch_shared_speed_perturbation_for_all_sources_with_rescaled_sample_geometry_and_nominal_midi_query",
+      "linear_effect_policy": "same_causal_direct_plus_single_echo_per_example",
+      "noise_policy": "colored_mixture_only_noise_with_clean_target",
+      "validation_policy": "clean_unaugmented",
+      "pitch_shift_policy": "batch_shared_length_preserving_integer_semitone_shift_with_per_source_rms_preservation_and_same_shift_applied_to_target_mixture_components_and_midi_query"
+    },
+    "gt_adaptive_harmonic_comb_loss": null
+  },
+  "sampler_contract": {
+    "schema": "dna_residual_v13_sampler_v2",
+    "strategy": "duration_bucket_audio_budget",
+    "family_key": "sound_family",
+    "family_temperature_alpha": 1.0,
+    "virtual_epoch_pairs": "step_stateless",
+    "resume_state": "optimizer_step",
+    "duration_index": "/note-sep-data/synthetic/indexes/duration-geometry",
+    "audio_budget_samples": 3200000,
+    "maximum_dynamic_batch_size": 192,
+    "minimum_window_samples": 16384,
+    "lead_samples": 4000,
+    "release_samples": 2560,
+    "window_quantum": 4096,
+    "acoustic_offset_index": {
+      "path": "/note-sep-data/synthetic/indexes/acoustic-offsets",
+      "shard_markers_sha256": "b9782c8027653b7a317adcbb0666bc984620a0d44b36cd5e8a0d7cdece50ae8a",
+      "release_policy": "max(fixed_release,detected_acoustic_release)"
+    },
+    "ordinal_view": {
+      "path": "/note-sep-data/synthetic/views/parent.json",
+      "sha256": "0c10443ebc6efb7aebe8ca50c93506dac1c46e8477aa25f5c911519f578a744d"
+    }
+  },
+  "arguments": {
+    "acoustic_offset_index": "/note-sep-data/synthetic/indexes/acoustic-offsets",
+    "audio_budget_samples": 3200000,
+    "batch_size": 8,
+    "device": "cuda",
+    "duration_index": "/note-sep-data/synthetic/indexes/duration-geometry",
+    "eval_every": 500,
+    "family_temperature_alpha": 1.0,
+    "fixed_samples": 0,
+    "frozen_manifest": "/note-sep-data/synthetic/corpus/FROZEN.json",
+    "grad_clip": 5.0,
+    "initialize_allow_loss_contract_change": false,
+    "initialize_allow_output_carrier_mode_change": false,
+    "keep_checkpoint_every": 5000,
+    "lead_samples": 4000,
+    "learning_rate": 0.0002,
+    "log_every": 20,
+    "lr_decay_steps": 30000,
+    "max_steps": 30000,
+    "maximum_dynamic_batch_size": 192,
+    "minimum_window_samples": 16384,
+    "monitor_media_every": 0,
+    "monitor_media_on_resume": false,
+    "monitor_pairs": 128,
+    "num_workers": 16,
+    "output_dir": "/note-sep-output/notegrab",
+    "prefetch_factor": 3,
+    "priority_family_temperature_alpha": 1.0,
+    "priority_fraction": 0.0,
+    "priority_index": null,
+    "reader_cache_size": 16,
+    "real_example_fraction": 0,
+    "recorded_frozen_root": [],
+    "release_samples": 2560,
+    "save_every": 250,
+    "seed": 20260902,
+    "synthetic_ordinal_view": "/note-sep-data/synthetic/views/parent.json",
+    "wandb_mode": "online",
+    "wandb_name": "notesep-notegrab-parent",
+    "wandb_project": "dna_occurrence_dual_hpss_separator",
+    "wandb_run_id": null,
+    "warmup_steps": 200,
+    "weight_decay": 0.0,
+    "window_quantum": 4096
+  },
+  "compile_mode": "off"
+}

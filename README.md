@@ -56,13 +56,21 @@ Install the training dependencies:
 uv sync --extra train
 ```
 
+**NoteGrab parent:** train the original parent from random weights for 30,000
+updates. Download the data, then run:
+
+```sh
+uv run notesep download-data --repo-id ben2002chou/notesep-training-data --output data/notegrab
+uv run python train.py stage=notegrab training.recipe=parent \
+  data.root=data/notegrab run.dir=outputs/notegrab-parent
+```
+
 **NoteGrab continuation:** the original parent run trained for 30,000 updates.
 The supplied recipe starts from that model after a further 250-update stage,
 loads its weights and starts a new optimizer. It runs 5,000 additional updates
 and keeps the paper-selected checkpoint at continuation step 2,500.
 
 ```sh
-uv run notesep download-data --repo-id ben2002chou/notesep-training-data --output data/notegrab
 uv run python training/download_initial_checkpoint.py --output checkpoints
 uv run python train.py stage=notegrab run.dir=outputs/notegrab \
   data.root=data/notegrab \

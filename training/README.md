@@ -32,7 +32,8 @@ notesep-data/
 │   ├── shards/            # Audio blobs, distributed as .blob.gz
 │   ├── timing/            # Duration and acoustic note-end information
 │   ├── metadata.zip       # Per-shard lookup tables, opened by the loader
-│   └── sampling.json      # Training and validation row selection
+│   ├── sampling-parent.json # Original parent row selection
+│   └── sampling.json        # Later continuation row selection
 ├── recorded/
 │   └── shards/            # Eight recorded-scene shards with their indexes
 └── example/               # One unpacked mixture, target, reference and labels
@@ -45,6 +46,20 @@ The small `example/` folder is for listening and inspection; it is not a
 source-complete ASO training scene. ASO uses its own data and proposal cache.
 
 ## Run NoteGrab
+
+Train the original parent from random weights:
+
+```sh
+uv run python train.py stage=notegrab training.recipe=parent \
+  data.root=data/notegrab run.dir=outputs/notegrab-parent
+```
+
+This uses 30,000 updates, learning rate 0.0002, seed 20260902, and the
+synthetic-only row selection in `synthetic/sampling-parent.json`. It does not
+load the released initialization checkpoint. `training/notegrab/parent_contract.json`
+sets this recipe; `environment.json` supplies the model and loss settings.
+
+For the later continuation, use the released initialization instead:
 
 The original NoteGrab parent run trained for 30,000 updates. The starting
 checkpoint below comes from that parent followed by a further 250-update stage.
