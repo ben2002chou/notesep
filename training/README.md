@@ -13,17 +13,14 @@ verified runs. uv selects Python 3.11 from `.python-version`.
 
 ## Prepare the data
 
-The training dataset has not been published yet. The commands below require
-the packed training data and its metadata on disk.
-
-If you already have the data package, check it and generate its local path map:
+Download and restore the [NoteGrab data](https://huggingface.co/datasets/ben2002chou/notesep-training-data):
 
 ```sh
-uv run notesep download-data --output /path/to/notegrab-data \
-  --manifest /path/to/notegrab-data/manifest.json
+uv run notesep download-data --repo-id ben2002chou/notesep-training-data --output data/notegrab
 ```
 
-The path map lets the training scripts find the data wherever you store it.
+Setup checks the files, restores the audio and creates a path map so the loader
+can find the data wherever you store it.
 
 The release package groups the data by its role:
 
@@ -54,21 +51,21 @@ optimizer; it is a continuation recipe, rather than training from random
 initialization. Download that starting checkpoint:
 
 ```sh
-uv run python training/download_initial_checkpoint.py --output /path/to/checkpoints
+uv run python training/download_initial_checkpoint.py --output checkpoints
 ```
 
 Then run the recipe with the data package and checkpoint:
 
 ```sh
 uv run python train.py stage=notegrab run.dir=outputs/notegrab \
-  data.root=/path/to/notegrab-data \
-  data.initialization=/path/to/checkpoints/0441537c.pt
+  data.root=data/notegrab \
+  data.initialization=checkpoints/initialization.pt
 ```
 
 ## Run ASO
 
 ASO trains from scratch using complete mixtures, isolated targets and NoteGrab
-estimates. Its download is about 71 GB; restored data occupies about 470 GB.
+estimates. Its [data download](https://huggingface.co/datasets/ben2002chou/notesep-aso-data) is about 71 GB; restored data occupies about 470 GB.
 Allow roughly 550 GB of free disk space for setup. Download and restore the
 data, then generate the estimates:
 

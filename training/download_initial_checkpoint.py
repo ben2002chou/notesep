@@ -8,10 +8,10 @@ import tempfile
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
-REPOSITORY = "ben2002chou/notesep-release-candidate"
-REVISION = "2841f0a58a0f541f8f27c9cd5bb39c2bed544f81"
+REPOSITORY = "ben2002chou/notesep"
+REVISION = "2fdb60fcb3d29bf35d062a306b8ec9afebb26ea0"
 FILES = {
-    "0441537c.pt": (
+    "initialization.pt": (
         "0441537c15c41764575122d3749278018c1191185f0b8000c0f339c35aa36623",
         693169646,
     ),
@@ -40,7 +40,7 @@ def download(output, cache_dir=None):
             source = Path(
                 hf_hub_download(
                     REPOSITORY,
-                    "training-lineage/" + name,
+                    "training/" + name,
                     revision=REVISION,
                     cache_dir=cache_dir,
                 )

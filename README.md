@@ -60,10 +60,11 @@ uv sync --extra train
 checkpoint. It loads the model weights and starts a new optimizer.
 
 ```sh
+uv run notesep download-data --repo-id ben2002chou/notesep-training-data --output data/notegrab
 uv run python training/download_initial_checkpoint.py --output checkpoints
 uv run python train.py stage=notegrab run.dir=outputs/notegrab \
-  data.root=/path/to/notegrab-data \
-  data.initialization=checkpoints/0441537c.pt
+  data.root=data/notegrab \
+  data.initialization=checkpoints/initialization.pt
 ```
 
 **ASO:** download its complete-source data, generate NoteGrab estimates, then train:
@@ -76,14 +77,15 @@ uv run python train.py stage=aso run.dir=outputs/aso \
   data.root=data/aso data.proposal_root=data/proposals
 ```
 
-Training uses CUDA and [Hydra configs](configs/README.md). The packed NoteGrab training
-dataset is not yet published; these commands require a local copy. See the
-[training guide](training/README.md) for data preparation and checkpoint outputs.
+Training uses CUDA and [Hydra configs](configs/README.md). Both datasets and the
+starting checkpoint are public downloads. See the [training guide](training/README.md)
+for disk requirements, data layouts and checkpoint outputs.
 
 ## Datasets
 
 Training and evaluation are separate downloads. NoteGrab uses mixture/target
-pairs; ASO uses complete groups of isolated notes. The [training guide](training/README.md)
+pairs ([data](https://huggingface.co/datasets/ben2002chou/notesep-training-data)); ASO uses complete groups of isolated notes
+([data](https://huggingface.co/datasets/ben2002chou/notesep-aso-data)). The [training guide](training/README.md)
 describes their layouts and setup.
 
 [SCNS-Eval and SCNS-Edit](https://huggingface.co/datasets/ben2002chou/notesep-benchmarks)
