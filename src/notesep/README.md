@@ -66,6 +66,12 @@ slightly between the two.
 mix. The directory must be empty. `NoteBank.load()` restores a saved project;
 pass its `saved_edits` to `render()` to apply the stored controls.
 
+## Trained checkpoints
+
+Pass `weights="outputs/weights"` to `NoteSep` to use your trained
+`separator.pt` and `aso.pt`. Omitting it loads the published paper models.
+Exports record the checksums of the files actually used.
+
 ## Files
 
 | File or folder | Purpose |

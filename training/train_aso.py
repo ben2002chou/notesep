@@ -42,6 +42,11 @@ def main():
     ]
     for name, path in paths.items():
         command.extend(["--" + name.replace("_", "-"), str(path)])
+    if settings.get("separator_checkpoint"):
+        checkpoint = Path(settings["separator_checkpoint"]).expanduser().resolve()
+        if not checkpoint.is_file():
+            raise FileNotFoundError(checkpoint)
+        command.extend(["--separator-checkpoint", str(checkpoint)])
     if args.path_map:
         command.extend(["--path-map", str(args.path_map.resolve())])
     policy_path = args.output.resolve() / "RUNTIME_POLICY.json"

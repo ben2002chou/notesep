@@ -56,39 +56,29 @@ Install the training dependencies:
 uv sync --extra train
 ```
 
-**NoteGrab parent:** train the original parent from random weights for 30,000
-updates. Download the data, then run:
+**NoteGrab:** download the data and train from scratch. The command runs the
+30,000-update parent, 250-update adaptation, and 5,000-update continuation.
 
 ```sh
 uv run notesep download-data --repo-id ben2002chou/notesep-training-data --output data/notegrab
-uv run python train.py stage=notegrab training.recipe=parent \
-  data.root=data/notegrab run.dir=outputs/notegrab-parent
+uv run python train.py stage=notegrab run.dir=outputs/notegrab data.root=data/notegrab
 ```
 
-**NoteGrab continuation:** the original parent run trained for 30,000 updates.
-The supplied recipe starts from that model after a further 250-update stage,
-loads its weights and starts a new optimizer. It runs 5,000 additional updates
-and keeps the paper-selected checkpoint at continuation step 2,500.
+The paper uses the continuation checkpoint at step 2,500:
+`outputs/notegrab/continuation/training/checkpoints/step-000002500.pt`.
+
+**ASO:** download its data, generate estimates with your trained NoteGrab, then train:
 
 ```sh
-uv run python training/download_initial_checkpoint.py --output checkpoints
-uv run python train.py stage=notegrab run.dir=outputs/notegrab \
-  data.root=data/notegrab \
-  data.initialization=checkpoints/initialization.pt
-```
-
-**ASO:** download its complete-source data, generate NoteGrab estimates, then train:
-
-```sh
-uv run notesep download
 uv run notesep download-data --repo-id ben2002chou/notesep-aso-data --output data/aso
-uv run python training/prepare_aso.py --data-root data/aso --output data/proposals
+uv run python training/prepare_aso.py --data-root data/aso --output data/proposals \
+  --checkpoint outputs/notegrab/continuation/training/checkpoints/step-000002500.pt
 uv run python train.py stage=aso run.dir=outputs/aso \
-  data.root=data/aso data.proposal_root=data/proposals
+  data.root=data/aso data.proposal_root=data/proposals \
+  data.separator=outputs/notegrab/continuation/training/checkpoints/step-000002500.pt
 ```
 
-Training uses CUDA and [Hydra configs](configs/README.md). Both datasets and the
-starting checkpoint are public downloads. See the [training guide](training/README.md)
+Training uses CUDA and [Hydra configs](configs/README.md). Both datasets are public downloads. See the [training guide](training/README.md)
 for disk requirements, data layouts and checkpoint outputs.
 
 ## Datasets

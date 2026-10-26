@@ -134,24 +134,30 @@ def infer_notes(
     return estimates
 
 
+def load_separator(checkpoint: Path, device: torch.device):
+    """Load the paper checkpoint or its verified retrained counterpart."""
+    separator_sha = sha256(checkpoint)
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    if separator_sha != CHECKPOINTS["separator.pt"]:
+        from training.validate_notegrab import validate_stage_checkpoint
+        validate_stage_checkpoint(payload, "continuation", step=2500)
+    model = occurrence_dual_hpss_separator_from_contract(payload["model_contract"])
+    model.load_state_dict(payload["model"], strict=True)
+    return model.to(device).eval(), separator_sha
+
+
 def generate(data_root: Path, checkpoint: Path, output: Path):
     proposal, recorded = data_paths(data_root)
-    if sha256(checkpoint) != CHECKPOINTS["separator.pt"]:
-        raise ValueError("Use the released NoteGrab checkpoint")
     if not torch.cuda.is_available():
         raise RuntimeError("Estimate generation requires a CUDA GPU")
     device = torch.device("cuda")
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
-    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    model = occurrence_dual_hpss_separator_from_contract(payload["model_contract"])
-    model.load_state_dict(payload["model"], strict=True)
-    model.to(device).eval()
-    del payload
+    model, separator_sha = load_separator(checkpoint, device)
     output.mkdir(parents=True, exist_ok=True)
     config = {
         "schema": SCHEMA,
-        "separator_sha256": CHECKPOINTS["separator.pt"],
+        "separator_sha256": separator_sha,
         "fresh_index_sha256": FRESH_SHA256,
         "proposal_index_sha256": PROPOSAL_INDEX_SHA256,
         "recorded_freeze_sha256": RECORDED_SHA256,

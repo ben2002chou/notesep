@@ -59,7 +59,7 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def proposal_cache_identity(root: Path) -> str:
+def proposal_cache_identity(root: Path, separator_checkpoint: Path | None = None) -> str:
     """Check the complete estimate cache generated from the released inputs."""
     validation_path = root / "VALIDATION.json"
     identity = sha256(validation_path)
@@ -68,11 +68,18 @@ def proposal_cache_identity(root: Path) -> str:
         raise ValueError("Generate ASO estimates with training/prepare_aso.py")
     from notesep.assets import CHECKPOINTS
 
+    separator_sha = CHECKPOINTS["separator.pt"]
+    if separator_checkpoint is not None:
+        separator_sha = sha256(separator_checkpoint)
+        if separator_sha != CHECKPOINTS["separator.pt"]:
+            from training.validate_notegrab import validate_stage_checkpoint
+            saved = torch.load(separator_checkpoint, map_location="cpu", weights_only=False)
+            validate_stage_checkpoint(saved, "continuation", step=2500)
     expected = {
         "status": "passed",
         "test_data_used": False,
         "complete": True,
-        "separator_sha256": CHECKPOINTS["separator.pt"],
+        "separator_sha256": separator_sha,
         "fresh_index_sha256": FRESH_SHA256,
         "proposal_index_sha256": PROPOSAL_INDEX_SHA256,
         "recorded_freeze_sha256": RECORDED_SHA256,
@@ -253,6 +260,7 @@ def main() -> int:
     parser.add_argument("--arm", choices=(FINAL_ARM,), required=True)
     parser.add_argument("--fresh-index", type=Path, required=True)
     parser.add_argument("--recorded-root", type=Path, required=True)
+    parser.add_argument("--separator-checkpoint", type=Path)
     parser.add_argument("--proposal-root", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=SEED)
     parser.add_argument("--output", type=Path, required=True)
@@ -270,7 +278,7 @@ def main() -> int:
         dataset.forbid_test_path(path)
     if args.output.exists() and not (args.output / "RESUME.pt").exists():
         raise FileExistsError(args.output)
-    proposal_validation_sha256 = proposal_cache_identity(args.proposal_root)
+    proposal_validation_sha256 = proposal_cache_identity(args.proposal_root, args.separator_checkpoint)
     args.output.mkdir(parents=True, exist_ok=True)
 
     signal.signal(signal.SIGUSR1, request_stop)

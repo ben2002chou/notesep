@@ -36,20 +36,22 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def load_models(device_name: str, profile=None):
+def load_models(device_name: str, profile=None, weights_dir=None):
     selected = model_profile(profile)
     return _load_models(
-        device_name, selected, str(weights_directory(selected).resolve())
+        device_name, selected,
+        str(Path(weights_dir).resolve() if weights_dir is not None else weights_directory(selected).resolve()),
+        weights_dir is not None,
     )
 
 
 @lru_cache(maxsize=4)
-def _load_models(device_name: str, profile: str, weights_path: str):
+def _load_models(device_name: str, profile: str, weights_path: str, custom: bool = False):
     device = torch.device(device_name)
     separator_path = Path(weights_path) / "separator.pt"
     aso_path = Path(weights_path) / "aso.pt"
     expected = checkpoint_hashes(profile)
-    if (
+    if not custom and (
         file_sha256(separator_path) != expected["separator.pt"]
         or file_sha256(aso_path) != expected["aso.pt"]
     ):
@@ -151,12 +153,13 @@ def separate(
     *,
     apply_aso: bool = True,
     profile=None,
+    weights_dir: Path | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     if audio.ndim != 1 or audio.dtype != np.float32 or not np.isfinite(audio).all():
         raise ValueError("Expected finite mono float32 audio")
     total = len(audio)
     notes = validate_notes(notes, total / RATE)
-    separator, aso, geometry = load_models(device_name, profile)
+    separator, aso, geometry = load_models(device_name, profile, weights_dir)
     device = torch.device(device_name)
     bounds = [
         (

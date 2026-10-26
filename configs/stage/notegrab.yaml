@@ -2,6 +2,6 @@
 stage: notegrab
 data:
   root: ???
-  initialization: ???
+  initialization: null
 training:
-  recipe: continuation
+  recipe: full

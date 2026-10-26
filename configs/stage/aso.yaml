@@ -3,5 +3,6 @@ stage: aso
 data:
   root: ???
   proposal_root: ???
+  separator: null
 training:
   seed: 20260909

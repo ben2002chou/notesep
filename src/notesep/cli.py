@@ -31,6 +31,7 @@ def main(argv=None):
     )
     separate.add_argument("--notegrab-only", action="store_true")
     separate.add_argument("--profile", choices=list(PROFILES))
+    separate.add_argument("--weights", type=Path, help="Folder containing trained separator.pt and aso.pt")
     separate.add_argument(
         "--window-start",
         type=float,
@@ -88,7 +89,7 @@ def main(argv=None):
             if path_map is not None:
                 print(f"Data path map: {path_map}")
         elif args.command == "separate":
-            bank = NoteSep(args.device, profile=args.profile).separate(
+            bank = NoteSep(args.device, profile=args.profile, weights=args.weights).separate(
                 args.audio,
                 args.score,
                 apply_aso=not args.notegrab_only,

@@ -47,82 +47,81 @@ source-complete ASO training scene. ASO uses its own data and proposal cache.
 
 ## Run NoteGrab
 
-Train the original parent from random weights:
-
 ```sh
-uv run python train.py stage=notegrab training.recipe=parent \
-  data.root=data/notegrab run.dir=outputs/notegrab-parent
+uv run python train.py stage=notegrab run.dir=outputs/notegrab data.root=data/notegrab
 ```
 
-This uses 30,000 updates, learning rate 0.0002, seed 20260902, and the
-synthetic-only row selection in `synthetic/sampling-parent.json`. It does not
-load the released initialization checkpoint. `training/notegrab/parent_contract.json`
-sets this recipe; `environment.json` supplies the model and loss settings.
+The launcher runs three stages in order. Each later stage loads the preceding
+model weights and starts a new optimizer.
 
-For the later continuation, use the released initialization instead:
+| Stage | Updates | Learning rate | Data selection |
+| --- | ---: | ---: | --- |
+| Parent | 30,000 | 0.0002 | Synthetic mixtures, `sampling-parent.json`. |
+| Adaptation | 250 | 0.000002 | Native instrument libraries, `sampling-adaptation.json`. |
+| Continuation | 5,000 | 0.000002 | Balanced synthetic and recorded crops, `sampling.json`. |
 
-The original NoteGrab parent run trained for 30,000 updates. The starting
-checkpoint below comes from that parent followed by a further 250-update stage.
-This recipe loads those model weights, starts a new optimizer and runs 5,000
-additional updates. It reproduces the continuation stage, not the original
-30,000-update parent run. Download the starting checkpoint:
+The continuation retains step 2,500, which is the paper's selected checkpoint.
+It also finishes the 5,000-update budget. Checkpoints and logs are grouped under
+`outputs/notegrab/parent`, `adaptation`, and `continuation`.
+`outputs/notegrab/result.json` gives the selected checkpoint path.
 
-```sh
-uv run python training/download_initial_checkpoint.py --output checkpoints
-```
-
-Then run the recipe with the data package and checkpoint:
-
-```sh
-uv run python train.py stage=notegrab run.dir=outputs/notegrab \
-  data.root=data/notegrab \
-  data.initialization=checkpoints/initialization.pt
-```
+To resume an interrupted run, repeat the command with `run.resume=true`.
+Completed stages are skipped; the interrupted stage restores its model,
+optimizer, random states and step count.
 
 ## Run ASO
 
-ASO trains from scratch using complete mixtures, isolated targets and NoteGrab
-estimates. Its [data download](https://huggingface.co/datasets/ben2002chou/notesep-aso-data) is about 71 GB; restored data occupies about 470 GB.
-Allow roughly 550 GB of free disk space for setup. Download and restore the
-data, then generate the estimates:
+ASO learns to refine complete groups of NoteGrab estimates. Its
+[data download](https://huggingface.co/datasets/ben2002chou/notesep-aso-data)
+is about 71 GB; restored data occupies about 470 GB. Allow roughly 550 GB for setup.
 
 ```sh
-uv run notesep download
 uv run notesep download-data --repo-id ben2002chou/notesep-aso-data --output data/aso
-uv run python training/prepare_aso.py --data-root data/aso --output data/proposals
+uv run python training/prepare_aso.py --data-root data/aso --output data/proposals \
+  --checkpoint outputs/notegrab/continuation/training/checkpoints/step-000002500.pt
 uv run python train.py stage=aso run.dir=outputs/aso \
-  data.root=data/aso data.proposal_root=data/proposals
+  data.root=data/aso data.proposal_root=data/proposals \
+  data.separator=outputs/notegrab/continuation/training/checkpoints/step-000002500.pt
 ```
 
-Estimate generation uses the released NoteGrab checkpoint downloaded by
-`notesep download`. It runs on a CUDA GPU, resumes completed units, and checks
-every stored estimate before training can use the cache. The data package
-contains both the NoteGrab query index and ASO's measured acoustic endpoint
-index; setup selects each automatically. Estimates are generated for the train
-and validation selections only.
+Estimate generation runs on a CUDA GPU and resumes completed units. It preserves
+the original NoteGrab query times. ASO then reads the separate measured acoustic
+endpoints for training. All cached estimates are checked before use; the cache
+must come from the checkpoint supplied to ASO training. Estimates cover only the
+training and validation selections.
 
-Use `uv run python train.py --cfg job` to inspect the selected settings. Data
-files are checked against the manifests in the package.
+ASO runs 29,058 updates. It saves `RESUME.pt` for automatic resume and
+`checkpoint-step-029058.pt` at the final step. Repeating its command resumes an
+interrupted run.
 
-## Outputs and implementation
+## Use the trained models
 
-The NoteGrab continuation runs for 5,000 additional updates. It keeps the paper endpoint at
-`training/checkpoints/step-000002500.pt` and the final checkpoint at
-`training/checkpoints/latest.pt` under `run.dir`, along with the resolved recipe
-and training log. ASO writes `RESUME.pt` for automatic resume,
-intermediate `checkpoint-step-*.pt` files, and development results under
-`run.dir`. Use a new output directory for each NoteGrab run.
+Place the selected NoteGrab and final ASO checkpoints in one folder:
 
-Start reading the code at `train.py` in the repository root. It selects one of
-the two launchers below. ASO's [implementation guide](aso/README.md) describes
-its dataset, loss, and training loop. NoteGrab's saved recipe is in
-`notegrab/training_contract.json`; `notegrab/environment.json` contains its
-numerical and sampling settings.
+```sh
+mkdir -p outputs/weights
+cp outputs/notegrab/continuation/training/checkpoints/step-000002500.pt outputs/weights/separator.pt
+cp outputs/aso/checkpoint-step-029058.pt outputs/weights/aso.pt
+uv run notesep separate src/notesep/studio_static/examples/mixture.wav \
+  --score src/notesep/studio_static/examples/score.mid \
+  --weights outputs/weights --output outputs/separated
+```
 
-NoteGrab's modules apply the sampling and crop steps in this order:
+In Python, use `NoteSep(weights="outputs/weights")`.
+
+## Implementation
+
+Start at `train.py`. [Hydra configs](../configs/README.md) select the inputs and
+output directory. `notegrab/parent_contract.json`, `adaptation_contract.json`
+and `training_contract.json` specify the three NoteGrab stages.
+`notegrab/environment.json` supplies their shared model and loss settings.
+
+The parent uses the duration-budget sampler. Adaptation balances native
+instrument libraries through `native_sampling.py`. The continuation composes
 `event_cluster_data` → `track_bound_sampling` → `library_balanced_sampling` →
-`target_cropped_training` → `parent_balanced_training`. These are composed into
-one trainer by the launcher. They are not separate training recipes.
+`target_cropped_training` → `parent_balanced_training`.
+These modules form one continuation trainer. ASO's [implementation guide](aso/README.md)
+describes its dataset, loss and training loop.
 
 ## Files
 
@@ -131,7 +130,6 @@ one trainer by the launcher. They are not separate training recipes.
 | `train_notegrab.py` | Launches the NoteGrab training recipe. |
 | `validate_notegrab.py` | Checks the saved NoteGrab recipe and runtime components. |
 | `stage_metadata.py` | Installs packed metadata while reading audio shards in place. |
-| `download_initial_checkpoint.py` | Downloads and verifies the NoteGrab starting checkpoint. |
 | `prepare_aso.py` | Generates and checks NoteGrab estimates for ASO. |
 | `train_aso.py` | Validates ASO inputs and launches its training recipe. |
 | `run_aso_training.py` | Applies and records the ASO numerical runtime settings. |

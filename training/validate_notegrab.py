@@ -14,6 +14,20 @@ DATA = ROOT / "training/notegrab/data"
 MODELS = ROOT / "training/notegrab/models"
 
 
+def load_contract(recipe):
+    """Load each stage's settings; adaptation keeps the parent's model and loss."""
+    names = {
+        "parent": "parent_contract.json", "adaptation": "adaptation_contract.json",
+        "continuation": "training_contract.json",
+    }
+    folder = ROOT / "training/notegrab"
+    settings = json.loads((folder / names[recipe]).read_text())
+    if recipe == "adaptation":
+        parent = json.loads((folder / names["parent"]).read_text())
+        settings = parent | settings
+    return settings
+
+
 def sha(path):
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:
@@ -44,12 +58,53 @@ def differences(actual, expected, path=""):
     return changes
 
 
+def validate_stage_checkpoint(saved, recipe, *, step=None):
+    """Check a trained checkpoint against its stage, independent of local paths."""
+    if saved.get("schema") != "dna_residual_v13_streaming_checkpoint_v1":
+        raise ValueError("Unknown NoteGrab training checkpoint")
+    source = load_contract(recipe)
+    args = source["arguments"]
+    expected = {key: args[key] for key in (
+        "batch_size", "fixed_samples", "max_steps", "lr_decay_steps", "seed",
+        "learning_rate", "weight_decay",
+    )}
+    expected.update(optimizer_name="adamw", compile_mode=source["compile_mode"])
+    expected_step = args["max_steps"] if step is None else step
+    if saved.get("global_step") != expected_step:
+        raise ValueError("Checkpoint has not reached the required training step")
+    if differences(saved.get("training_contract"), expected):
+        raise ValueError("Checkpoint uses a different training recipe")
+
+    def without_paths(value):
+        # File identities stay fixed when a dataset moves to another disk.
+        if isinstance(value, dict):
+            return {key: without_paths(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [without_paths(item) for item in value]
+        if isinstance(value, str) and value.startswith("/"):
+            return "<data-path>"
+        return value
+
+    for name in ("model_contract", "loss_contract", "sampler_contract"):
+        if differences(without_paths(saved.get(name)), without_paths(source[name])):
+            raise ValueError("Checkpoint differs: " + name)
+    binding = saved.get("corpus_binding", {})
+    synthetic = binding.get("synthetic", binding)
+    identity = load_contract("parent")["corpus_identity"]
+    if any(synthetic.get(key) != value for key, value in identity.items()):
+        raise ValueError("Checkpoint uses a different synthetic corpus")
+    if recipe == "continuation":
+        if differences(without_paths(binding.get("recorded")),
+                       without_paths(source["corpus_binding"]["recorded"])):
+            raise ValueError("Checkpoint uses different recorded training data")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--path-map", type=Path)
     parser.add_argument(
-        "--recipe", choices=("parent", "continuation"), default="continuation"
+        "--recipe", choices=("parent", "adaptation", "continuation"), default="continuation"
     )
     args = parser.parse_args()
     if args.output is not None and args.output.exists():
@@ -58,13 +113,9 @@ def main():
     from notesep.training_paths import configure, relocated
 
     configure(args.path_map)
-    filename = (
-        "parent_contract.json" if args.recipe == "parent" else "training_contract.json"
-    )
-    contract_path = ROOT / "training/notegrab" / filename
     if args.output is None:
         raise ValueError("--output is required for the full component check")
-    contract = json.loads(contract_path.read_text())
+    contract = load_contract(args.recipe)
     environment_path = ROOT / "training/notegrab/environment.json"
     environment = json.loads(environment_path.read_text())
     if environment["schema"] != "notesep_notegrab_paper_environment_v1":
@@ -98,9 +149,19 @@ def main():
             ),
         )
         sys.path.insert(0, str(DATA / "scripts"))
-        import parent_balanced_training as entry
-        base = entry.trainer
-        selective = entry.selective
+        if args.recipe == "adaptation":
+            import library_balanced_sampling as entry
+            from event_cluster_data import base, selective
+            import native_sampling
+
+            index = relocated(contract["native_index"]["path"])
+            if sha(index) != contract["native_index"]["sha256"]:
+                raise ValueError("Native-library row index changed")
+            native_sampling.install(base, index)
+        else:
+            import parent_balanced_training as entry
+            base = entry.trainer
+            selective = entry.selective
     # Historical JSON serializes argparse Path values as strings.
     arguments = dict(contract["arguments"])
     for key in [
@@ -138,7 +199,7 @@ def main():
         for name, value in observed.items()
     }
     sampler = (
-        base.ResumeSafeAudioBudgetBatchSampler if args.recipe == "parent"
+        base.ResumeSafeAudioBudgetBatchSampler if args.recipe in {"parent", "adaptation"}
         else base.DeterministicMixedBatchSampler
     )
     resolved = {

@@ -232,7 +232,10 @@ class NoteSep:
     The auto device preference is CUDA, then Apple MPS, then CPU.
     """
 
-    def __init__(self, device: str = "auto", *, profile: str | None = None):
+    def __init__(
+        self, device: str = "auto", *, profile: str | None = None,
+        weights: str | Path | None = None,
+    ):
         if device == "auto":
             import torch
 
@@ -245,6 +248,8 @@ class NoteSep:
             raise ValueError("Device must be auto, cpu, cuda, or mps")
         self.device = device
         self.profile = model_profile(profile)
+        self.weights = Path(weights).expanduser().resolve() if weights is not None else None
+        self._checkpoint_hashes = None
 
     def separate(
         self,
@@ -314,8 +319,14 @@ class NoteSep:
         # one proposal would obscure that distinction. Match Studio's path.
         apply_aso = bool(apply_aso and len(notes) > 1)
         raw, stems = separate(
-            audio, notes, self.device, apply_aso=apply_aso, profile=self.profile
+            audio, notes, self.device, apply_aso=apply_aso, profile=self.profile,
+            weights_dir=self.weights,
         )
+        if self._checkpoint_hashes is None:
+            self._checkpoint_hashes = (
+                {name: sha256(self.weights / name) for name in ("separator.pt", "aso.pt")}
+                if self.weights is not None else checkpoint_hashes(self.profile)
+            )
         return NoteBank(
             notes,
             stems,
@@ -323,8 +334,8 @@ class NoteSep:
             raw,
             {
                 "input_sha256": sha256(path),
-                "checkpoint_sha256": checkpoint_hashes(self.profile),
-                "model_profile": self.profile,
+                "checkpoint_sha256": dict(self._checkpoint_hashes),
+                "model_profile": "custom" if self.weights is not None else self.profile,
                 "device": self.device,
                 "python": platform.python_version(),
                 "window_start_seconds": actual_start,

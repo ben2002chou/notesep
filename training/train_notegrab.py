@@ -32,6 +32,19 @@ def apply_data_root(options):
     }
 
 
+def validate_initialization(path, recipe):
+    """Accept the released initializer or a checkpoint from the preceding stage."""
+    if recipe == "continuation":
+        released = components.load_contract(recipe)["initialization"]["checkpoint_sha256"]
+        if components.sha(path) == released:
+            return
+    import torch
+
+    saved = torch.load(path, map_location="cpu", weights_only=False)
+    predecessor = "parent" if recipe == "adaptation" else "adaptation"
+    components.validate_stage_checkpoint(saved, predecessor)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -41,7 +54,7 @@ def main():
         help="Restore the latest checkpoint and optimizer",
     )
     parser.add_argument(
-        "--recipe", choices=("parent", "continuation"), default="continuation"
+        "--recipe", choices=("parent", "adaptation", "continuation"), default="continuation"
     )
     parser.add_argument(
         "--dry-run",
@@ -56,10 +69,10 @@ def main():
     )
     options = parser.parse_args()
     if (
-        options.recipe == "continuation" and not options.resume
+        options.recipe != "parent" and not options.resume
         and options.initialize_checkpoint is None
     ):
-        parser.error("Continuation training needs --initialize-checkpoint")
+        parser.error("Adaptation and continuation need --initialize-checkpoint")
     if options.recipe == "parent" and options.initialize_checkpoint is not None:
         parser.error("Parent training starts from random weights")
     apply_data_root(options)
@@ -77,24 +90,21 @@ def main():
     sys.path.insert(0, str(components.ROOT / "src"))
     from notesep.training_paths import configure, relocated
 
-    if options.recipe == "parent":
+    if options.recipe in {"parent", "adaptation"}:
         mapping = json.loads(options.path_map.read_text())
-        mapping["/note-sep-data/synthetic/views/parent.json"] = str(
-            options.data_root.resolve() / "synthetic/sampling-parent.json"
+        root = options.data_root.resolve()
+        mapping[f"/note-sep-data/synthetic/views/{options.recipe}.json"] = str(
+            root / f"synthetic/sampling-{options.recipe}.json"
+        )
+        mapping["/note-sep-data/synthetic/render-methods.npz"] = str(
+            root / "synthetic/render-methods.npz"
         )
         options.path_map = options.output / "path-map.json"
         options.path_map.write_text(json.dumps(mapping, indent=2) + "\n")
     configure(options.path_map)
-    filename = (
-        "parent_contract.json" if options.recipe == "parent" else "training_contract.json"
-    )
-    contract_path = components.ROOT / "training/notegrab" / filename
-    contract = json.loads(contract_path.read_text())
-    if options.recipe == "continuation" and not options.resume and (
-        components.sha(options.initialize_checkpoint)
-        != contract["initialization"]["checkpoint_sha256"]
-    ):
-        raise ValueError("Exact original model-only +250 initialization required")
+    contract = components.load_contract(options.recipe)
+    if options.recipe != "parent" and not options.resume:
+        validate_initialization(options.initialize_checkpoint, options.recipe)
     os.environ.update(
         DNA_V13_OPTIMIZER="adamw",
         DNA_V13_SKIP_INITIAL_MONITOR="1",
@@ -113,6 +123,8 @@ def main():
     if options.recipe == "parent":
         import scripts.train_notegrab_separator as selective
         base = selective.base
+    elif options.recipe == "adaptation":
+        from event_cluster_data import base
     else:
         import parent_balanced_training as entry
         base = entry.trainer
