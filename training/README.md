@@ -46,9 +46,11 @@ source-complete ASO training scene. ASO uses its own data and proposal cache.
 
 ## Run NoteGrab
 
-NoteGrab starts from the model checkpoint saved at training step 250. The recipe loads its weights and starts a new
-optimizer; it is a continuation recipe, rather than training from random
-initialization. Download that starting checkpoint:
+The original NoteGrab parent run trained for 30,000 updates. The starting
+checkpoint below comes from that parent followed by a further 250-update stage.
+This recipe loads those model weights, starts a new optimizer and runs 5,000
+additional updates. It reproduces the continuation stage, not the original
+30,000-update parent run. Download the starting checkpoint:
 
 ```sh
 uv run python training/download_initial_checkpoint.py --output checkpoints
@@ -89,7 +91,7 @@ files are checked against the manifests in the package.
 
 ## Outputs and implementation
 
-NoteGrab runs for 5,000 updates. It keeps the paper endpoint at
+The NoteGrab continuation runs for 5,000 additional updates. It keeps the paper endpoint at
 `training/checkpoints/step-000002500.pt` and the final checkpoint at
 `training/checkpoints/latest.pt` under `run.dir`, along with the resolved recipe
 and training log. ASO writes `RESUME.pt` for automatic resume,

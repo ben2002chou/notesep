@@ -56,8 +56,10 @@ Install the training dependencies:
 uv sync --extra train
 ```
 
-**NoteGrab:** the supplied recipe continues from the step-250 initialization
-checkpoint. It loads the model weights and starts a new optimizer.
+**NoteGrab continuation:** the original parent run trained for 30,000 updates.
+The supplied recipe starts from that model after a further 250-update stage,
+loads its weights and starts a new optimizer. It runs 5,000 additional updates
+and keeps the paper-selected checkpoint at continuation step 2,500.
 
 ```sh
 uv run notesep download-data --repo-id ben2002chou/notesep-training-data --output data/notegrab
