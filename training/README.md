@@ -130,7 +130,7 @@ describes its dataset, loss and training loop.
 | File or folder | Purpose |
 | --- | --- |
 | `train_notegrab.py` | Launches the NoteGrab training recipe. |
-| `validate_notegrab.py` | Checks the saved NoteGrab recipe and runtime components. |
+| `notegrab_recipe.py` | Loads the NoteGrab training settings and data sources. |
 | `stage_metadata.py` | Installs packed metadata while reading audio shards in place. |
 | `prepare_aso.py` | Generates and checks NoteGrab estimates for ASO. |
 | `train_aso.py` | Validates ASO inputs and launches its training recipe. |

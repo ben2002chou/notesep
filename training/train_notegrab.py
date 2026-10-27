@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-import validate_notegrab as components
+import notegrab_recipe as recipe_tools
 
 
 def apply_data_root(options):
@@ -35,14 +35,14 @@ def apply_data_root(options):
 def validate_initialization(path, recipe):
     """Accept the released initializer or a checkpoint from the preceding stage."""
     if recipe == "continuation":
-        released = components.load_contract(recipe)["initialization"]["checkpoint_sha256"]
-        if components.sha(path) == released:
+        released = recipe_tools.load_contract(recipe)["initialization"]["checkpoint_sha256"]
+        if recipe_tools.sha(path) == released:
             return
     import torch
 
     saved = torch.load(path, map_location="cpu", weights_only=False)
     predecessor = "parent" if recipe == "adaptation" else "adaptation"
-    components.validate_stage_checkpoint(saved, predecessor)
+    recipe_tools.validate_stage_checkpoint(saved, predecessor)
 
 
 def main():
@@ -87,7 +87,7 @@ def main():
         options.packed_metadata_manifest_sha256,
     )
     options.output.mkdir(parents=True, exist_ok=options.resume)
-    sys.path.insert(0, str(components.ROOT / "src"))
+    sys.path.insert(0, str(recipe_tools.ROOT / "src"))
     from notesep.training_paths import configure, relocated
 
     if options.recipe in {"parent", "adaptation"}:
@@ -102,7 +102,7 @@ def main():
         options.path_map = options.output / "path-map.json"
         options.path_map.write_text(json.dumps(mapping, indent=2) + "\n")
     configure(options.path_map)
-    contract = components.load_contract(options.recipe)
+    contract = recipe_tools.load_contract(options.recipe)
     if options.recipe != "parent" and not options.resume:
         validate_initialization(options.initialize_checkpoint, options.recipe)
     os.environ.update(
@@ -112,13 +112,7 @@ def main():
         OUTPUT=str((options.output / "training").resolve()),
     )
     suffix = f"-resume-{os.getpid()}" if options.resume else ""
-    sys.argv = [
-        str(components.__file__),
-        "--output",
-        str(options.output / f"components{suffix}.json"),
-    ]
-    sys.argv += ["--path-map", str(options.path_map), "--recipe", options.recipe]
-    components.main()
+    recipe_tools.configure_recipe(options.recipe, options.path_map)
     if options.recipe == "parent":
         import scripts.train_notegrab_separator as selective
         base = selective.base
@@ -227,7 +221,7 @@ def main():
             "status": "passed_training_execution",
             "global_step": saved["global_step"],
             "gpu": torch.cuda.get_device_name(),
-            "checkpoint_sha256": components.sha(checkpoint),
+            "checkpoint_sha256": recipe_tools.sha(checkpoint),
             "finite_tensors": counts,
         }
         (options.output / "result.json").write_text(json.dumps(report, indent=2) + "\n")

@@ -72,7 +72,7 @@ def proposal_cache_identity(root: Path, separator_checkpoint: Path | None = None
     if separator_checkpoint is not None:
         separator_sha = sha256(separator_checkpoint)
         if separator_sha != CHECKPOINTS["separator.pt"]:
-            from training.validate_notegrab import validate_stage_checkpoint
+            from training.notegrab_recipe import validate_stage_checkpoint
             saved = torch.load(separator_checkpoint, map_location="cpu", weights_only=False)
             validate_stage_checkpoint(saved, "continuation", step=2500)
     expected = {

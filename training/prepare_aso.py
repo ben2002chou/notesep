@@ -139,7 +139,7 @@ def load_separator(checkpoint: Path, device: torch.device):
     separator_sha = sha256(checkpoint)
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
     if separator_sha != CHECKPOINTS["separator.pt"]:
-        from training.validate_notegrab import validate_stage_checkpoint
+        from training.notegrab_recipe import validate_stage_checkpoint
         validate_stage_checkpoint(payload, "continuation", step=2500)
     model = occurrence_dual_hpss_separator_from_contract(payload["model_contract"])
     model.load_state_dict(payload["model"], strict=True)
