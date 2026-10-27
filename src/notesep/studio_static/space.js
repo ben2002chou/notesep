@@ -1,4 +1,4 @@
-import {client} from './vendor/gradio-client-2.7.0.mjs';
+import {client} from './vendor/gradio-client.mjs';
 import {saveBlob} from './audio-export.mjs';
 
 const $=selector=>document.querySelector(selector);
