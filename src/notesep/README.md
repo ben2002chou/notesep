@@ -89,10 +89,10 @@ Exports record the checksums of the files actually used.
 | `baselines.py` | Score-informed NMF separation. |
 | `studio.py`, `studio_static/` | Local editor server, player, piano roll, and example audio. |
 | `public_transcription.py` | Request draft scores from the configured transcription service. |
-| `transcription_checks.py` | Check transcription size and timing before display. |
+| `transcription_checks.py` | Compare a draft with a second transcription. |
 | `score_audio_checks.py` | Detect score/audio timing and coverage problems for the editor. |
-| `quality_checks.py` | Summarize clipping, silence, and output levels. |
-| `runtime_limits.py` | Bound the editor's audio-processing thread count. |
+| `quality_checks.py` | Summarize how well separated notes cover the input waveform. |
+| `runtime_limits.py` | Estimate GPU time for a Studio separation request. |
 | `project_archive.py` | Save and reopen editor projects as ZIP files. |
 | `source_archive.py` | Serve the editor source as a downloadable archive. |
 | `legal/` | License texts included with that source archive. |

@@ -33,6 +33,8 @@ notesep-data/
 │   ├── timing/            # Duration and acoustic note-end information
 │   ├── metadata.zip       # Per-shard lookup tables, opened by the loader
 │   ├── sampling-parent.json # Original parent row selection
+│   ├── sampling-adaptation.json # Native-library adaptation rows
+│   ├── render-methods.npz    # Instrument-library labels for adaptation
 │   └── sampling.json        # Later continuation row selection
 ├── recorded/
 │   └── shards/            # Eight recorded-scene shards with their indexes
