@@ -1771,10 +1771,6 @@ class OccurrenceJointTFCTDFSeparator(DNAResidualTFCFramewiseConditioned):
             )
         return contract
 
-    @classmethod
-    def from_contract(cls, raw: object) -> "OccurrenceJointTFCTDFSeparator":
-        return occurrence_joint_tfc_tdf_separator_from_contract(raw)
-
     def forward(
         self,
         mixture: torch.Tensor,
@@ -2316,126 +2312,7 @@ class OccurrenceJointTFCTDFSeparator(DNAResidualTFCFramewiseConditioned):
         return target, diagnostics
 
 
-def occurrence_joint_tfc_tdf_separator_from_contract(
-    raw: object,
-) -> OccurrenceJointTFCTDFSeparator:
-    if not isinstance(raw, dict) or raw.get("kind") not in {
-        _CONTRACT_KIND,
-        _OWNERSHIP_CONTRACT_KIND,
-        _COMPLEX_MASK_CONTRACT_KIND,
-        _UNBOUNDED_COMPLEX_MASK_CONTRACT_KIND,
-        _MAGNITUDE_MASK_CONTRACT_KIND,
-        _POLAR_COMPLEX_MASK_CONTRACT_KIND,
-    }:
-        raise ValueError("Checkpoint lacks a joint occurrence TFC-TDF contract")
-    config_raw = raw.get("config")
-    if not isinstance(config_raw, dict):
-        raise ValueError("Joint occurrence TFC-TDF contract lacks a config")
-    try:
-        config = DNAResidualTFCTDFUNetConfig(**config_raw)
-        activation_checkpointing = raw["architecture"]["activation_checkpointing"]
-    except (KeyError, TypeError) as error:
-        raise ValueError("Invalid joint occurrence TFC-TDF contract") from error
-    if not isinstance(activation_checkpointing, bool):
-        raise ValueError("activation_checkpointing must be boolean")
-    model = OccurrenceJointTFCTDFSeparator(
-        config,
-        activation_checkpointing=activation_checkpointing,
-        ownership_parameterization=raw.get("kind") == _OWNERSHIP_CONTRACT_KIND,
-        complex_mask_parameterization=raw.get("kind") in {
-            _COMPLEX_MASK_CONTRACT_KIND,
-            _UNBOUNDED_COMPLEX_MASK_CONTRACT_KIND,
-        },
-        unbounded_complex_mask_parameterization=(
-            raw.get("kind") == _UNBOUNDED_COMPLEX_MASK_CONTRACT_KIND
-        ),
-        magnitude_mask_parameterization=raw.get("kind") == _MAGNITUDE_MASK_CONTRACT_KIND,
-        bounded_polar_complex_mask_parameterization=(
-            raw.get("kind") == _POLAR_COMPLEX_MASK_CONTRACT_KIND
-        ),
-        conditioning_mode=(
-            _NATIVE_FULL_ROLL_CONDITIONING_MODE
-            if raw.get("conditioning", {}).get("type")
-            == "native_rt2_25hz_128pitch_full_roll_encoder_target_roll_decoder"
-            else (
-            _FULL_ROLL_CONDITIONING_MODE
-            if raw.get("conditioning", {}).get("type")
-            == "rt2_25hz_full_roll_encoder_target_roll_decoder"
-            else (
-                _ONSET_ONLY_CONDITIONING_MODE
-                if raw.get("conditioning", {}).get("type")
-                == "rt2_25hz_onset_only_pitch_plus_multiscale_film"
-                else (
-                "rt2_target_roll"
-                if raw.get("conditioning", {}).get("type")
-                == "rt2_25hz_target_only_roll_plus_multiscale_film"
-                else "harmonic_lifecycle"
-                )
-            )
-            )
-        ),
-        roll_hold_min_ms=float(
-            raw.get("conditioning", {}).get("training_positive_hold_ms", [0.0, 0.0])[0]
-        ),
-        roll_hold_max_ms=float(
-            raw.get("conditioning", {}).get("training_positive_hold_ms", [0.0, 0.0])[1]
-        ),
-        roll_tail_decay_min_ms=float(
-            raw.get("conditioning", {}).get(
-                "training_tail_decay_time_constant_ms", [0.0, 0.0]
-            )[0]
-        ),
-        roll_tail_decay_max_ms=float(
-            raw.get("conditioning", {}).get(
-                "training_tail_decay_time_constant_ms", [0.0, 0.0]
-            )[1]
-        ),
-        relative_octave_decoder_conditioning=bool(
-            raw.get("conditioning", {}).get("relative_octave_decoder_intervals")
-        ),
-        target_relative_frequency_decoder_conditioning=bool(
-            raw.get("conditioning", {}).get(
-                "target_relative_frequency_decoder_channels"
-            )
-        ),
-        target_relative_harmonic_position_conditioning=bool(
-            raw.get("conditioning", {}).get(
-                "target_relative_harmonic_position_channels"
-            )
-        ),
-        multi_target_full_score=bool(
-            raw.get("architecture", {}).get("multi_target_full_score", False)
-        ),
-        multi_occurrence_target_roll=bool(
-            raw.get("architecture", {}).get(
-                "multi_occurrence_target_roll", False
-            )
-        ),
-        target_score_input_routing=bool(
-            raw.get("architecture", {}).get("target_score_input_routing", False)
-        ),
-        full_score_contrast_input=bool(
-            raw.get("architecture", {}).get("full_score_contrast_input", False)
-        ),
-        learned_full_score_rejection_input=bool(
-            raw.get("architecture", {}).get(
-                "learned_full_score_rejection_input", False
-            )
-        ),
-        preserve_signed_score_times=(
-            raw.get("conditioning", {}).get("window_boundary_state")
-            == "negative_onset_is_continuation_not_onset_at_frame_zero"
-        ),
-    )
-    if raw.get("architecture", {}).get("auxiliary_carrier_conditioning"):
-        model.enable_auxiliary_carrier_conditioning()
-    if model.contract(raw.get("preset")) != raw:
-        raise ValueError("Joint occurrence TFC-TDF checkpoint contract changed")
-    return model
-
-
 __all__ = [
     "OccurrenceJointTFCTDFSeparator",
     "magnitude_source_ownership_loss",
-    "occurrence_joint_tfc_tdf_separator_from_contract",
 ]
