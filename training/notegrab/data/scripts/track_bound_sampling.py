@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 import hashlib
-import json
 import math
 import os
 from pathlib import Path
@@ -114,7 +113,6 @@ class SourceLibraryThenSoundSampler(Sampler[list[Any]]):
             ]
             requested = self._count(step, len(batch))
             slots = set(sorted(eligible_slots, key=lambda slot: self._rank(f"slot:{step}:{slot}"))[:min(requested, len(eligible_slots))])
-            selected: list[LibraryRowRef] = []
             used: set[int] = set()
             output: list[Any] = []
             for slot, synthetic_index in enumerate(batch):
@@ -127,21 +125,7 @@ class SourceLibraryThenSoundSampler(Sampler[list[Any]]):
                     raise RuntimeError(f"no SCNS v3 row fits batch length={window}, step={step}")
                 row = self._choose(eligible, step=step, slot=slot)
                 used.add(row.row_index)
-                selected.append(row)
                 output.append(("scene", row.row_index))
-            authority = self.output / "trackbound_v3_within_batch_yields.jsonl"
-            authority.parent.mkdir(parents=True, exist_ok=True)
-            with authority.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps({
-                    "schema": "scns_trackbound_v3_within_batch_yield_v1",
-                    "candidate_optimizer_step": step + 1,
-                    "requested_recorded_fraction": self.fraction,
-                    "batch_rows": len(output), "recorded_rows": len(selected),
-                    "requested_recorded_rows": requested, "recorded_eligible_slots": len(eligible_slots),
-                    "recorded_source_libraries": sorted({row.source_library for row in selected}),
-                    "recorded_source_parents": sorted({row.source_parent for row in selected}),
-                    "recorded_instruments": sorted({row.instrument for row in selected}),
-                }, sort_keys=True) + "\n")
             yield output
 
 

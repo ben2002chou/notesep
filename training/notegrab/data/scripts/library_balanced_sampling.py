@@ -190,30 +190,10 @@ class LibraryBalancedInterleavedSampler(trackbound.SourceLibraryThenSoundSampler
             authority.parent.mkdir(parents=True, exist_ok=True)
             with authority.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps({
-                    "schema": "scns_v3_library_balanced_promoted_batch_yield_v2",
                     "candidate_optimizer_step": step + 1,
-                    "requested_score_bound_rows": requested,
-                    "realized_score_bound_rows": len(selected),
-                    "batch_rows_before_budget": len(batch),
                     "batch_rows_after_budget": len(output),
-                    "promoted_window_samples": promoted,
-                    "audio_budget_samples": audio_budget,
-                    "realized_score_bound_fraction": len(selected) / len(output),
-                    "configured_score_bound_fraction": self.fraction,
-                    "cumulative_batch_rows": cumulative_rows_after,
-                    "cumulative_score_bound_rows": cumulative_score_bound_after,
-                    "cumulative_score_bound_fraction": (
-                        cumulative_score_bound_after / cumulative_rows_after
-                    ),
-                    "cumulative_fraction_error_rows": float(
-                        Fraction(cumulative_score_bound_after, 1)
-                        - fraction * cumulative_rows_after
-                    ),
-                    "recorded_source_libraries": sorted({row.source_library for row in selected}),
-                    "recorded_source_parents": sorted({row.source_parent for row in selected}),
-                    "recorded_instruments": sorted({row.instrument for row in selected}),
-                    "recorded_k": [row.k for row in selected],
-                }, sort_keys=True) + "\n")
+                    "realized_score_bound_rows": len(selected),
+                }) + "\n")
             self.cumulative_rows = cumulative_rows_after
             self.cumulative_score_bound_rows = cumulative_score_bound_after
             yield output
