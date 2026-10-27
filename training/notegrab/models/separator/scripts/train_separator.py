@@ -23,7 +23,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
 from model_exp.dna_residual_losses import dna_residual_losses  # noqa: E402
-from model_exp.dna_residual_corpus import FrozenDNAResidualPriorCatalog  # noqa: E402
 from model_exp.training_contract import (  # noqa: E402
     FREE_TARGET_LOSS_WEIGHTS,
 )
@@ -42,18 +41,19 @@ from model_exp.residual_source_data import (  # noqa: E402
     acoustic_offset_marker_digest,
     load_acoustic_release_samples,
     load_duration_windows,
-    DeterministicMixedBatchSampler,
-    MixedSyntheticRecordedDataset,
-    RecordedValidationDataset,
-    load_frozen_residual_rows,
-    target_complete_window,
 )
 
 
 CHECKPOINT_SCHEMA = "dna_residual_v13_streaming_checkpoint_v1"
 RUN_SCHEMA = "dna_residual_v13_streaming_run_v1"
-RECORDED_MIX_SCHEMA = "dna_residual_v13_recorded_mix_v1"
 OPTIMIZER_CHOICES = ("adam", "adamw")
+
+# Recorded-data recipes install their dataset and sampler before training.
+load_recorded_training_data = None
+load_recorded_validation_data = None
+MixedSyntheticRecordedDataset = None
+RecordedValidationDataset = None
+DeterministicMixedBatchSampler = None
 
 
 def normalized_checkpoint_loss_contract(contract: Any) -> Any:
@@ -296,107 +296,6 @@ def validate_recorded_mix_args(args: argparse.Namespace) -> None:
         )
 
 
-def load_recorded_training_data(
-    roots: list[Path],
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Load only frozen train rows and verify parent-disjoint validation authority."""
-
-    rows: list[dict[str, Any]] = []
-    root_contracts: list[dict[str, Any]] = []
-    train_parents: set[str] = set()
-    validation_parents: set[str] = set()
-    seen_assets: set[str] = set()
-    for root_value in roots:
-        root = root_value.expanduser().resolve()
-        freeze_path = root / "FROZEN.json"
-        freeze = _read_json(freeze_path)
-        if (
-            freeze.get("schema") != "frozen_dna_residual_corpus_v1"
-            or freeze.get("status") != "passed"
-            or not freeze.get("payload_checksums_verified", False)
-            or int(freeze.get("parent_overlap", -1)) != 0
-        ):
-            raise ValueError(f"Recorded residual root is not frozen-passed: {root}")
-        partitions = freeze.get("partitions")
-        if not isinstance(partitions, dict) or any(
-            int(dict(partitions.get(split, {})).get("joined_notes", 0)) < 1
-            for split in ("train", "validation")
-        ):
-            raise ValueError(
-                f"Recorded residual root lacks train/validation rows: {root}"
-            )
-
-        with FrozenDNAResidualPriorCatalog(root, split="validation") as catalog:
-            root_validation_parents = {
-                str(record.metadata["source_parent_id"])
-                for record in catalog.iter_records()
-            }
-        loaded = load_frozen_residual_rows(root, split="train")
-        root_train_parents = {str(row["score_parent_id"]) for row in loaded}
-        overlap = root_train_parents & root_validation_parents
-        if overlap:
-            raise ValueError(
-                f"Recorded train/validation parent overlap at {root}: "
-                f"{sorted(overlap)[:5]}"
-            )
-        for row in loaded:
-            metadata = dict(row["metadata"])
-            asset_id = ":".join(
-                (
-                    str(row["source_id"]),
-                    str(row["sample_id"]),
-                    f"note-{int(metadata['note_row']):05d}",
-                )
-            )
-            if asset_id in seen_assets:
-                raise ValueError(f"Duplicate recorded training asset: {asset_id}")
-            seen_assets.add(asset_id)
-            rows.append(
-                {
-                    **row,
-                    "training_asset_id": asset_id,
-                    "frozen_root": str(root),
-                    "frozen_split": "train",
-                }
-            )
-        train_parents.update(root_train_parents)
-        validation_parents.update(root_validation_parents)
-        root_contracts.append(
-            {
-                "root": str(root),
-                "split": "train",
-                "frozen_sha256": sha256_file(freeze_path),
-                "index_sha256": str(freeze["index_sha256"]),
-                "rows": len(loaded),
-                "train_parents": len(root_train_parents),
-                "validation_parents": len(root_validation_parents),
-                "declared_parent_overlap": int(freeze["parent_overlap"]),
-            }
-        )
-    cross_overlap = train_parents & validation_parents
-    if cross_overlap:
-        raise ValueError(
-            "Recorded roots introduce cross-root train/validation parent overlap: "
-            f"{sorted(cross_overlap)[:5]}"
-        )
-    if not rows:
-        raise ValueError("Recorded training mixture is empty")
-    return rows, {
-        "schema": RECORDED_MIX_SCHEMA,
-        "split": "train",
-        "target_blind_input_contract": {
-            "mixture": "recorded mixture waveform",
-            "dna": "selected-note DNA waveform",
-            "other_dna": "digital silence",
-            "unassigned_residual": "mixture minus selected-note DNA",
-            "target_access": "loss only; never an inference input",
-        },
-        "roots": root_contracts,
-        "rows": len(rows),
-        "train_parents": len(train_parents),
-        "validation_parents": len(validation_parents),
-        "train_validation_parent_overlap": 0,
-    }
 
 
 def _cohort_sha256(values: Iterable[str | int]) -> str:
@@ -404,69 +303,6 @@ def _cohort_sha256(values: Iterable[str | int]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def load_recorded_validation_data(
-    roots: list[Path],
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Load the immutable recorded validation cohort with exact root bindings."""
-
-    rows: list[dict[str, Any]] = []
-    root_contracts: list[dict[str, Any]] = []
-    asset_ids: list[str] = []
-    seen_assets: set[str] = set()
-    for root_value in roots:
-        root = root_value.expanduser().resolve()
-        freeze_path = root / "FROZEN.json"
-        freeze = _read_json(freeze_path)
-        if (
-            freeze.get("schema") != "frozen_dna_residual_corpus_v1"
-            or freeze.get("status") != "passed"
-            or not freeze.get("payload_checksums_verified", False)
-        ):
-            raise ValueError(f"Recorded residual root is not frozen-passed: {root}")
-        loaded = load_frozen_residual_rows(root, split="validation")
-        if not loaded:
-            raise ValueError(f"Recorded validation cohort is empty: {root}")
-        root_asset_ids: list[str] = []
-        for row in loaded:
-            metadata = dict(row["metadata"])
-            asset_id = ":".join(
-                (
-                    str(row["source_id"]),
-                    str(row["sample_id"]),
-                    f"note-{int(metadata['note_row']):05d}",
-                )
-            )
-            if asset_id in seen_assets:
-                raise ValueError(f"Duplicate recorded validation asset: {asset_id}")
-            seen_assets.add(asset_id)
-            asset_ids.append(asset_id)
-            root_asset_ids.append(asset_id)
-            rows.append(
-                {
-                    **row,
-                    "training_asset_id": asset_id,
-                    "frozen_root": str(root),
-                    "frozen_split": "validation",
-                }
-            )
-        root_contracts.append(
-            {
-                "root": str(root),
-                "split": "validation",
-                "frozen_sha256": sha256_file(freeze_path),
-                "index_sha256": str(freeze["index_sha256"]),
-                "count": len(root_asset_ids),
-                "cohort_sha256": _cohort_sha256(root_asset_ids),
-            }
-        )
-    return rows, {
-        "schema": "dna_residual_v13_recorded_validation_cohort_v1",
-        "immutable": True,
-        "split": "validation",
-        "count": len(rows),
-        "cohort_sha256": _cohort_sha256(asset_ids),
-        "roots": root_contracts,
-    }
 
 
 def validation_aggregate_75_25(
@@ -1232,6 +1068,11 @@ def main(argv: list[str] | None = None) -> None:
     recorded_validation_rows: list[dict[str, Any]] = []
     recorded_validation_binding: dict[str, Any] | None = None
     if float(args.real_example_fraction) > 0.0:
+        adapters = (load_recorded_training_data, load_recorded_validation_data,
+                    MixedSyntheticRecordedDataset, RecordedValidationDataset,
+                    DeterministicMixedBatchSampler)
+        if not all(callable(adapter) for adapter in adapters):
+            raise RuntimeError("Recorded data adapters are missing from the training recipe")
         recorded_rows, recorded_contract = load_recorded_training_data(
             [Path(root) for root in args.recorded_frozen_root]
         )
