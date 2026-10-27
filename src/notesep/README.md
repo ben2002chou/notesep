@@ -72,6 +72,30 @@ Pass `weights="outputs/weights"` to `NoteSep` to use your trained
 `separator.pt` and `aso.pt`. Omitting it loads the published paper models.
 Exports record the checksums of the files actually used.
 
+## Instrument evaluation
+
+The instrument table uses [PHENICX Anechoic](https://www.upf.edu/web/mtg/phenicx-anechoic)
+and [Bach10](https://labsites.rochester.edu/air/resource.html), with their original
+instrument-evaluation checkpoints. Install the evaluation dependencies and
+FFmpeg, then run one piece at a time:
+
+```sh
+uv sync --extra evaluation
+uv run python -m notesep.instrument_evaluate --dataset bach10 \
+  --data-root path/to/Bach10 --piece 01-AchGottundHerr \
+  --separator path/to/instrument-separator.pt --aso path/to/instrument-aso.pt \
+  --output results/bach10/01-AchGottundHerr
+```
+
+Use `--dataset phenicx` and the PHENICX dataset directory for the orchestral
+pieces. Each output folder contains the reference, NoteGrab and NoteSep tracks
+and `scores.json`. Once every piece is finished, summarize the dataset:
+
+```sh
+uv run python -m notesep.instrument_evaluate --dataset bach10 \
+  --summarize results/bach10 --output results/bach10-summary.json
+```
+
 ## Files
 
 | File or folder | Purpose |
@@ -81,6 +105,8 @@ Exports record the checksums of the files actually used.
 | `cli.py` | Command-line arguments and command dispatch. |
 | `inference.py` | Load checkpoints, estimate notes, and apply ASO. |
 | `evaluate.py` | Reproduce separation scores on SCNS-Eval. |
+| `instrument_evaluate.py` | Separate and evaluate the paper's instrument tracks. |
+| `instrument_data.py` | Read and score the instrument evaluation datasets. |
 | `assets.py` | Download and verify the released checkpoints. |
 | `models/` | [Network implementations](models/README.md). |
 | `training_window.py` | Match the note crop geometry used during training. |

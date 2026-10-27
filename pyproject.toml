@@ -20,6 +20,7 @@ studio = [
   "requests>=2.31,<3",
 ]
 baseline = ["scikit-learn>=1.5,<1.8"]
+evaluation = ["museval==0.4.1", "pandas<3"]
 train = [
   "hydra-core==1.3.2", "torch==2.3.0", "torchaudio==2.3.0",
   "numpy==1.26.4", "scipy==1.13.0", "soundfile==0.13.1",

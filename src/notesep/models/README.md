@@ -26,7 +26,7 @@ The model configuration saved in the checkpoint supplies its layer dimensions.
 | File | Role |
 | --- | --- |
 | `ownership.py` | Extract mixture/proposal features and learn note ownership over time. |
-| `aso.py` | Refine the raw ownership ratios using acoustic note boundaries. |
+| `aso.py` | Refine the raw ownership ratios using acoustic note boundaries; includes the instrument-evaluation model. |
 | `simplex.py` | Sparsemax projection used by the ownership layers. |
 
 ASO takes a complex mixture spectrogram `[B, F, T]` and note estimates

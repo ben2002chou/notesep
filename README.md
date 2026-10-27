@@ -108,6 +108,7 @@ uv run python -m notesep.evaluate data/benchmark --output results/evaluation.jso
 ```
 
 The output contains per-note scores and the summary metrics from the paper.
+For PHENICX and Bach10, see the [instrument evaluation instructions](src/notesep/README.md#instrument-evaluation).
 To evaluate your own checkpoints, pass `--weights` with a directory containing
 `separator.pt` and `aso.pt`.
 
