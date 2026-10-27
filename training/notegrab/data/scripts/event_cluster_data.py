@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Load recorded score scenes and mix their note targets into training batches."""
 
 from __future__ import annotations
@@ -286,7 +285,3 @@ base.collate_v13 = telemetry_collate
 base.forward_metrics = forward_metrics
 base.append_metric = append_metric
 base.sampler_contract = sampler_contract
-
-
-if __name__ == "__main__":
-    base.main()

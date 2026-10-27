@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Sample a source library, then a sound identity within that library."""
 
 from __future__ import annotations
@@ -160,7 +159,3 @@ def sampler_contract(args: Any) -> dict[str, Any]:
 
 v1.base.DeterministicMixedBatchSampler = SourceLibraryThenSoundSampler
 v1.base.sampler_contract = sampler_contract
-
-
-if __name__ == "__main__":
-    v1.base.main()

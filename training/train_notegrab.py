@@ -110,7 +110,6 @@ def main():
         DNA_V13_SKIP_INITIAL_MONITOR="1",
         DNA_V13_TORCH_COMPILE=contract["compile_mode"],
         OUTPUT=str((options.output / "training").resolve()),
-        SCNS_REQUIRE_ALL_16_RECORDED_FAMILIES="0",
     )
     suffix = f"-resume-{os.getpid()}" if options.resume else ""
     sys.argv = [

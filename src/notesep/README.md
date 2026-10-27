@@ -80,6 +80,7 @@ Exports record the checksums of the files actually used.
 | `api.py` | Separation, note editing, and project loading/export. |
 | `cli.py` | Command-line arguments and command dispatch. |
 | `inference.py` | Load checkpoints, estimate notes, and apply ASO. |
+| `evaluate.py` | Reproduce separation scores on SCNS-Eval. |
 | `assets.py` | Download and verify the released checkpoints. |
 | `models/` | [Network implementations](models/README.md). |
 | `training_window.py` | Match the note crop geometry used during training. |
@@ -97,5 +98,6 @@ Exports record the checksums of the files actually used.
 | `source_archive.py` | Serve the editor source as a downloadable archive. |
 | `legal/` | License texts included with that source archive. |
 | `training_data.py` | Download and verify training or benchmark data, restore compressed shards, and write local paths. |
+| `shards.py` | Read and write indexed training audio archives. |
 | `training_paths.py` | Resolve stored dataset locations on the current machine. |
 | `training_resume.py` | Check that an ASO resume uses the same data and recipe. |

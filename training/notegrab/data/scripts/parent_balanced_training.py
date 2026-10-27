@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Balance note crops across physical sound sources and expose the final trainer."""
 
 from __future__ import annotations
@@ -58,8 +57,3 @@ def sampler_contract(args: Any) -> dict[str, Any]:
 
 trainer.DeterministicMixedBatchSampler = ParentBalancedTargetCroppedSampler
 trainer.sampler_contract = sampler_contract
-
-
-if __name__ == "__main__":
-    os.environ.setdefault("SCNS_REQUIRE_ALL_16_RECORDED_FAMILIES", "0")
-    trainer.main()

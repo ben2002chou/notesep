@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Crop each query around its complete note, including acoustic release.
 
 The same crop geometry is used for synthetic and recorded examples. Notes
@@ -7,9 +6,7 @@ already sounding at the left boundary retain their negative onset."""
 from __future__ import annotations
 
 import os
-import importlib.util
 from pathlib import Path
-import sys
 from typing import Any
 
 import library_balanced_sampling as v2
@@ -30,27 +27,21 @@ def _overlapping_score_event(
     return {"pitch": int(pitch), "onset_sample": onset, "offset_sample": offset}
 
 
-# The frozen full-score adapter historically clamped negative onsets to zero,
-# despite the model explicitly supporting negative-onset HELD state. Patch the
-# function in its owning module for this canonical data contract only.
+# A negative onset tells the model that a note was already playing at the
+# beginning of the crop.
 _full_score_globals = _SyntheticWithFullScore.__getitem__.__globals__
 _full_score_globals["_clipped_event"] = _overlapping_score_event
 
 
-def _load_canonical_augmentation():
-    path = Path(__file__).resolve().parents[1] / "src/model_exp/occurrence_audio_augmentation.py"
-    spec = importlib.util.spec_from_file_location(
-        "model_exp.occurrence_audio_augmentation_canonical", path
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError("cannot load canonical occurrence augmentation")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module.apply_occurrence_augmentation
+# Continuation crops retain notes that started before the crop.
+_augment_occurrence = v2.trackbound.v1.selective.apply_occurrence_augmentation
 
 
-v2.trackbound.v1.selective.apply_occurrence_augmentation = _load_canonical_augmentation()
+def augment_held_notes(*args, **kwargs):
+    return _augment_occurrence(*args, preserve_held_onsets=True, **kwargs)
+
+
+v2.trackbound.v1.selective.apply_occurrence_augmentation = augment_held_notes
 
 
 class AcousticEndpointSyntheticDataset(_SyntheticWithFullScore):
@@ -75,9 +66,7 @@ class AcousticEndpointSyntheticDataset(_SyntheticWithFullScore):
         output["note_offset_samples"] = output["note_offset_samples"].new_tensor(
             acoustic_offset
         )
-        # Full-score events are materialized only when a score-dependent input
-        # gate is active. Ungated factorial arms still need the identical
-        # acoustic target endpoint, but do not consume a full-score event list.
+        # Some training examples do not need the full list of score events.
         if "full_score_events" in output:
             events = []
             for item in output["full_score_events"]:
@@ -98,10 +87,7 @@ class AcousticEndpointSyntheticDataset(_SyntheticWithFullScore):
 
 class TargetCroppedEventClusterDataset(v2.trackbound.v1.TelemetryEventClusterDataset):
     def __getitem__(self, index: int) -> dict[str, Any]:
-        row = crop_recorded_note(super().__getitem__(index))
-        # Keep the semantic timing label consumed by frozen telemetry.  Crop
-        # geometry is recorded separately by ``crop_recorded_note``.
-        return row
+        return crop_recorded_note(super().__getitem__(index))
 
 
 def load_training(roots: list[Path]) -> tuple[TargetCroppedEventClusterDataset, dict[str, Any]]:
@@ -199,8 +185,3 @@ v2.trackbound.v1.base.load_recorded_validation_data = load_validation
 v2.trackbound.v1.base.DeterministicMixedBatchSampler = TargetCroppedLibraryBalancedSampler
 v2.trackbound.v1.base.sampler_contract = sampler_contract
 v2.trackbound.v1.base.V13StreamingResidualDataset = AcousticEndpointSyntheticDataset
-
-
-if __name__ == "__main__":
-    os.environ.setdefault("SCNS_REQUIRE_ALL_16_RECORDED_FAMILIES", "0")
-    v2.trackbound.v1.base.main()

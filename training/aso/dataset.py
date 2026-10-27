@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import torch
 from training.aso.datasets.synthetic import FreshSourceCompleteDataset
-from training.aso.datasets.shards import PackedBlobShardReader
+from notesep.shards import PackedBlobShardReader
 from training.aso.datasets.recorded import RecordedNaturalScoreSceneDataset
 
 NFFT, HOP, SR = 2048, 512, 16000

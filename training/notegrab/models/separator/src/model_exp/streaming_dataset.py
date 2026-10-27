@@ -16,7 +16,7 @@ import torch
 from torch.utils.data import Dataset
 
 from .corpus import FrozenV13Contract, _bound_path
-from .packed_blob_shards import PackedBlobShardReader
+from notesep.shards import PackedBlobShardReader
 
 
 class V13StreamingResidualDataset(Dataset[dict[str, Any]]):

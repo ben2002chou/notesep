@@ -146,6 +146,5 @@ def separate_baseline(audio_path, notes, *, max_iter=1000):
             "contract": contract,
             "input_sha256": sha256(audio_path),
             "endpoint_policy": "provided_score_end",
-            "role": "portable user tool; frozen paper evaluator is separate",
         },
     )

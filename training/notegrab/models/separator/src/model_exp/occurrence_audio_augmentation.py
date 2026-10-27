@@ -254,6 +254,7 @@ def apply_occurrence_augmentation(
     *,
     enabled: bool,
     generator: torch.Generator | None = None,
+    preserve_held_onsets: bool = False,
 ) -> tuple[dict[str, Any], dict[str, torch.Tensor]]:
     """Return an augmented shallow batch copy and scalar diagnostics."""
 
@@ -402,9 +403,10 @@ def apply_occurrence_augmentation(
                 batch["full_score_offsets"].float() * time_scale
             ).long()
             maximum = result["valid_samples"].long()[:, None]
-            score_onsets = torch.minimum(
-                score_onsets.clamp_min(0), (maximum - 1).clamp_min(0)
-            )
+            # A negative onset marks a note that was already sounding at crop entry.
+            if not preserve_held_onsets:
+                score_onsets = score_onsets.clamp_min(0)
+            score_onsets = torch.minimum(score_onsets, (maximum - 1).clamp_min(0))
             score_offsets = torch.minimum(
                 torch.maximum(score_offsets, score_onsets + 1), maximum
             )

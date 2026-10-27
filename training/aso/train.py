@@ -475,7 +475,6 @@ def main() -> int:
         result = {
             "schema": "temporal_aso_exact_score_result_v1",
             "status": "passed" if all(gates.values()) else "failed",
-            "job_id": os.environ.get("SLURM_JOB_ID"),
             "device": torch.cuda.get_device_name(),
             "runtime_seconds": time.monotonic() - started,
             "contract": contract,

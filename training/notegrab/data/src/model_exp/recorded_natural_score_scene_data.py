@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, Sampler
 
-from .packed_blob_shards import PackedBlobShardReader
+from notesep.shards import PackedBlobShardReader
 
 
 SCENE_KIND = "recorded_natural_score_exact_stems_v1"

@@ -1,12 +1,10 @@
-#!/usr/bin/env python3
-"""Train the selected DNA corrector from scratch on a frozen V13 pair index."""
+"""Train NoteGrab on synthetic and recorded note examples."""
 
 from __future__ import annotations
 
 import argparse
 import copy
 from contextlib import nullcontext
-from dataclasses import asdict
 import hashlib
 import json
 import math
@@ -15,40 +13,19 @@ from pathlib import Path
 import random
 import sys
 import time
-from typing import Any, Iterable, Mapping, Type
+from typing import Any, Iterable, Mapping
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset, Sampler, Subset
+from torch.utils.data import DataLoader, Dataset, Subset
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
-from model_exp.dna_residual_corrector import (  # noqa: E402
-    DNAComplexResidualCorrector,
-    DNAResidualCorrectorConfig,
-)
 from model_exp.dna_residual_losses import dna_residual_losses  # noqa: E402
 from model_exp.dna_residual_corpus import FrozenDNAResidualPriorCatalog  # noqa: E402
-from model_exp.dna_harmonic_partial_loss import (  # noqa: E402
-    DNAHarmonicPartialLoss,
-    DNAHarmonicPartialLossConfig,
-)
-from model_exp.dna_residual_band_expert import (  # noqa: E402
-    DNAResidualBandAttackContinuationExpert,
-    DNAResidualBandAttackContinuationExpertConfig,
-    DNAResidualBandExpert,
-    DNAResidualBandExpertConfig,
-    DNAResidualBandDualRegionExpert,
-    DNAResidualBandDualRegionExpertConfig,
-)
-from notesep.models.unet import (  # noqa: E402
-    DNAResidualTFCTDFUNet,
-    dna_residual_tfc_tdf_unet_config,
-)
 from model_exp.training_contract import (  # noqa: E402
     FREE_TARGET_LOSS_WEIGHTS,
-    MODEL_CONTRACT,
 )
 from model_exp.corpus import FrozenV13Contract, sha256_file  # noqa: E402
 from model_exp.samplers import (  # noqa: E402
@@ -60,6 +37,14 @@ from model_exp.streaming_dataset import (  # noqa: E402
 )
 from model_exp.batching import collate_v13  # noqa: E402
 from model_exp.residual_source_data import (  # noqa: E402
+    SyntheticOrdinalViewDataset,
+    load_synthetic_ordinal_view,
+    acoustic_offset_marker_digest,
+    load_acoustic_release_samples,
+    load_duration_windows,
+    DeterministicMixedBatchSampler,
+    MixedSyntheticRecordedDataset,
+    RecordedValidationDataset,
     load_frozen_residual_rows,
     target_complete_window,
 )
@@ -67,18 +52,6 @@ from model_exp.residual_source_data import (  # noqa: E402
 
 CHECKPOINT_SCHEMA = "dna_residual_v13_streaming_checkpoint_v1"
 RUN_SCHEMA = "dna_residual_v13_streaming_run_v1"
-BAND_CHANNEL_CHOICES = (16, 32, 64, 128, 192, 256, 384, 512)
-BAND_TEMPORAL_BLOCK_CHOICES = (8, 12, 16, 20, 24, 32, 40)
-SUPPORTED_BAND_CAPACITY_POINTS = frozenset(
-    (channels, temporal_blocks)
-    for channels in BAND_CHANNEL_CHOICES
-    for temporal_blocks in BAND_TEMPORAL_BLOCK_CHOICES
-)
-BAND_CAPACITY_ENV_KEYS = (
-    "DNA_V13_BAND_CHANNELS",
-    "DNA_V13_BAND_TEMPORAL_BLOCKS",
-)
-TFC_TDF_PRESETS = ("30m", "46m")
 RECORDED_MIX_SCHEMA = "dna_residual_v13_recorded_mix_v1"
 OPTIMIZER_CHOICES = ("adam", "adamw")
 
@@ -130,27 +103,6 @@ def resolve_environment_flag(
     return raw == "1"
 
 
-def _environment_choice(
-    environment: Mapping[str, str],
-    key: str,
-    *,
-    default: int,
-    choices: tuple[int, ...],
-) -> int:
-    if key not in environment:
-        return default
-    raw = environment[key]
-    if not raw or raw.strip() != raw:
-        raise ValueError(f"{key} must be one of {choices}; got {raw!r}")
-    try:
-        value = int(raw)
-    except ValueError as error:
-        raise ValueError(f"{key} must be one of {choices}; got {raw!r}") from error
-    if str(value) != raw or value not in choices:
-        raise ValueError(f"{key} must be one of {choices}; got {raw!r}")
-    return value
-
-
 def resolve_optimizer_name(
     environment: Mapping[str, str] | None = None,
 ) -> str:
@@ -164,114 +116,13 @@ def resolve_optimizer_name(
     return optimizer_name
 
 
-def band_capacity_overrides(
-    environment: Mapping[str, str] | None = None,
-) -> dict[str, int]:
-    """Return bounded band capacity values, including unchanged defaults."""
-
-    environment = os.environ if environment is None else environment
-    defaults = DNAResidualBandExpertConfig()
-    values = {
-        "channels": _environment_choice(
-            environment,
-            "DNA_V13_BAND_CHANNELS",
-            default=defaults.channels,
-            choices=BAND_CHANNEL_CHOICES,
-        ),
-        "temporal_blocks": _environment_choice(
-            environment,
-            "DNA_V13_BAND_TEMPORAL_BLOCKS",
-            default=defaults.temporal_blocks,
-            choices=BAND_TEMPORAL_BLOCK_CHOICES,
-        ),
-    }
-    point = (values["channels"], values["temporal_blocks"])
-    if point not in SUPPORTED_BAND_CAPACITY_POINTS:
-        raise ValueError(
-            "Unsupported combined band capacity "
-            f"channels={point[0]}, temporal_blocks={point[1]}"
-        )
-    return values
-
-
-def validate_band_capacity_scope(
-    model_kind: str, environment: Mapping[str, str] | None = None
-) -> None:
-    """Reject capacity settings that would otherwise be silently ignored."""
-
-    environment = os.environ if environment is None else environment
-    if model_kind not in {
-        "band_expert",
-        "band_dual_region",
-        "band_attack_continuation",
-    } and any(key in environment for key in BAND_CAPACITY_ENV_KEYS):
-        raise ValueError(
-            "Band capacity overrides require a band-family DNA_V13_MODEL_KIND"
-        )
-
-
-def band_model_contract(
-    model_kind: str,
-    config_type: Type[DNAResidualBandExpertConfig],
-    environment: Mapping[str, str] | None = None,
-) -> dict[str, Any]:
-    """Build the exact serialized contract for one band-family model."""
-
-    values = asdict(config_type())
-    values.update(band_capacity_overrides(environment))
-    return {"kind": model_kind, **values}
-
-
 OPTIMIZER_NAME = resolve_optimizer_name()
 SKIP_INITIAL_MONITOR = resolve_environment_flag("DNA_V13_SKIP_INITIAL_MONITOR")
-ACTIVE_MODEL_CONTRACT = dict(MODEL_CONTRACT)
-if os.environ.get("DNA_V13_TIMING_FEATURES", "0") == "1":
-    ACTIVE_MODEL_CONTRACT["use_timing_features"] = True
-MODEL_KIND = os.environ.get("DNA_V13_MODEL_KIND", "full_resolution")
-if MODEL_KIND not in {
-    "full_resolution",
-    "band_expert",
-    "band_dual_region",
-    "band_attack_continuation",
-    "tfc_tdf_unet",
-}:
-    raise ValueError(
-        "DNA_V13_MODEL_KIND must be full_resolution, band_expert, or "
-        "band_dual_region, band_attack_continuation, or tfc_tdf_unet"
-    )
-validate_band_capacity_scope(MODEL_KIND)
-if MODEL_KIND == "band_expert":
-    ACTIVE_MODEL_CONTRACT = band_model_contract(MODEL_KIND, DNAResidualBandExpertConfig)
-elif MODEL_KIND == "band_dual_region":
-    ACTIVE_MODEL_CONTRACT = band_model_contract(
-        MODEL_KIND, DNAResidualBandDualRegionExpertConfig
-    )
-elif MODEL_KIND == "band_attack_continuation":
-    ACTIVE_MODEL_CONTRACT = band_model_contract(
-        MODEL_KIND, DNAResidualBandAttackContinuationExpertConfig
-    )
-elif MODEL_KIND == "tfc_tdf_unet":
-    TFC_TDF_PRESET = os.environ.get("DNA_V13_TFC_TDF_PRESET", "30m")
-    if TFC_TDF_PRESET not in TFC_TDF_PRESETS:
-        raise ValueError(f"DNA_V13_TFC_TDF_PRESET must be one of {TFC_TDF_PRESETS}")
-    ACTIVE_MODEL_CONTRACT = {
-        "kind": MODEL_KIND,
-        "preset": TFC_TDF_PRESET,
-        **asdict(dna_residual_tfc_tdf_unet_config(TFC_TDF_PRESET)),
-    }
-BAND_COMPLEX_WEIGHT = float(os.environ.get("DNA_V13_BAND_COMPLEX_WEIGHT", "0.25"))
-if not math.isfinite(BAND_COMPLEX_WEIGHT) or BAND_COMPLEX_WEIGHT < 0.0:
-    raise ValueError("DNA_V13_BAND_COMPLEX_WEIGHT must be finite and non-negative")
-BAND_REGION_COMPLEX_WEIGHT = float(
-    os.environ.get("DNA_V13_BAND_REGION_COMPLEX_WEIGHT", "0.0")
-)
-if not math.isfinite(BAND_REGION_COMPLEX_WEIGHT) or BAND_REGION_COMPLEX_WEIGHT < 0.0:
-    raise ValueError(
-        "DNA_V13_BAND_REGION_COMPLEX_WEIGHT must be finite and non-negative"
-    )
+ACTIVE_MODEL_CONTRACT: dict[str, Any] = {}
+MODEL_KIND = "notesep"
 COMPILE_MODE = os.environ.get("DNA_V13_TORCH_COMPILE", "off")
-if COMPILE_MODE not in {"off", "full", "regional"}:
-    raise ValueError("DNA_V13_TORCH_COMPILE must be off, full, or regional")
+if COMPILE_MODE != "off":
+    raise ValueError("The NoteGrab recipe uses uncompiled training")
 ACTIVE_BASE_LOSS_WEIGHTS = dict(FREE_TARGET_LOSS_WEIGHTS)
 for key in tuple(ACTIVE_BASE_LOSS_WEIGHTS):
     environment_key = f"DNA_V13_{key.upper()}"
@@ -280,44 +131,6 @@ for key in tuple(ACTIVE_BASE_LOSS_WEIGHTS):
 for key, value in ACTIVE_BASE_LOSS_WEIGHTS.items():
     if not math.isfinite(value) or value < 0.0:
         raise ValueError(f"{key} must be finite and non-negative")
-HARMONIC_PARTIAL_WEIGHTS = {
-    "harmonic_partial_weight": float(
-        os.environ.get("DNA_V13_HARMONIC_PARTIAL_WEIGHT", "0.0")
-    ),
-    "off_partial_weight": float(os.environ.get("DNA_V13_OFF_PARTIAL_WEIGHT", "0.0")),
-    "temporal_partial_jaggedness_weight": float(
-        os.environ.get("DNA_V13_TEMPORAL_PARTIAL_JAGGEDNESS_WEIGHT", "0.0")
-    ),
-    "hard_example_gamma": float(
-        os.environ.get("DNA_V13_HARMONIC_HARD_EXAMPLE_GAMMA", "0.0")
-    ),
-}
-for key, value in HARMONIC_PARTIAL_WEIGHTS.items():
-    if not math.isfinite(value) or value < 0.0:
-        raise ValueError(f"{key} must be finite and non-negative")
-HARMONIC_PARTIAL_LOSS = (
-    DNAHarmonicPartialLoss(
-        DNAHarmonicPartialLossConfig(
-            partial_energy_weight=HARMONIC_PARTIAL_WEIGHTS["harmonic_partial_weight"],
-            off_partial_weight=HARMONIC_PARTIAL_WEIGHTS["off_partial_weight"],
-            temporal_jaggedness_weight=HARMONIC_PARTIAL_WEIGHTS[
-                "temporal_partial_jaggedness_weight"
-            ],
-            hard_example_gamma=HARMONIC_PARTIAL_WEIGHTS["hard_example_gamma"],
-        )
-    )
-    if any(
-        HARMONIC_PARTIAL_WEIGHTS[key]
-        for key in (
-            "harmonic_partial_weight",
-            "off_partial_weight",
-            "temporal_partial_jaggedness_weight",
-        )
-    )
-    else None
-)
-
-
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--frozen-manifest", type=Path, required=True)
@@ -591,21 +404,6 @@ def _cohort_sha256(values: Iterable[str | int]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def recorded_frozen_split(row: Mapping[str, Any]) -> str:
-    """Return the explicit frozen split carried by a recorded corpus row."""
-
-    split = str(row.get("frozen_split", ""))
-    if split not in {"train", "validation"}:
-        raise ValueError(f"Recorded row has invalid frozen split: {split!r}")
-    return split
-
-
-def recorded_competitor_events_required(arm: str) -> bool:
-    """Return whether a conditioning arm consumes recorded score competitors."""
-
-    return str(arm) == "g3_competitor_film"
-
-
 def load_recorded_validation_data(
     roots: list[Path],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -719,225 +517,10 @@ def best_checkpoint_selection_metric(recorded_exists: bool) -> str:
     )
 
 
-class MixedSyntheticRecordedDataset(Dataset[dict[str, Any]]):
-    """Adapt frozen recorded rows to the target-blind V13 training batch contract."""
-
-    def __init__(
-        self,
-        synthetic: Dataset[dict[str, Any]],
-        recorded_rows: list[dict[str, Any]],
-    ) -> None:
-        self.synthetic = synthetic
-        self.recorded_rows = recorded_rows
-        self.recorded_window_samples = np.asarray(
-            [int(row["valid_samples"]) for row in recorded_rows], dtype=np.int64
-        )
-        if len(recorded_rows) < 1 or np.any(self.recorded_window_samples < 1):
-            raise ValueError("Recorded training rows must have positive lengths")
-
-    def __len__(self) -> int:
-        return len(self.synthetic)
-
-    def __getitem__(self, index: tuple[Any, ...]) -> dict[str, Any]:
-        if not isinstance(index, tuple) or not index:
-            raise TypeError("Mixed dataset indices must identify synthetic or recorded")
-        source = str(index[0])
-        if source == "synthetic" and len(index) == 2:
-            return self.synthetic[index[1]]
-        if source != "recorded" or len(index) != 3:
-            raise ValueError(f"Invalid mixed dataset index: {index!r}")
-        row_index, requested_samples = int(index[1]), int(index[2])
-        row = self.recorded_rows[row_index]
-        valid_samples = int(row["valid_samples"])
-        if requested_samples < valid_samples:
-            raise ValueError("Recorded complete-note window exceeds its sampled slot")
-        metadata = dict(row["metadata"])
-        total = int(metadata["samples"])
-        start, stop = target_complete_window(metadata, total)
-        if stop - start != valid_samples:
-            raise ValueError("Recorded row crop no longer matches frozen metadata")
-        onset = int(metadata["onset_sample"]) - start
-        offset = int(metadata["offset_sample"]) - start
-        if not 0 <= onset < offset <= valid_samples:
-            raise ValueError("Recorded lifecycle bounds are invalid after cropping")
-
-        arrays = {
-            key: np.asarray(row[key], dtype=np.float32)
-            for key in ("mixture", "target", "dna")
-        }
-        if any(
-            value.shape != (valid_samples,) or not np.isfinite(value).all()
-            for value in arrays.values()
-        ):
-            raise ValueError("Recorded training waveforms are invalid")
-        padded = {
-            key: np.pad(value, (0, requested_samples - valid_samples))
-            for key, value in arrays.items()
-        }
-        mixture = torch.from_numpy(padded["mixture"].astype(np.float32, copy=False))
-        dna = torch.from_numpy(padded["dna"].astype(np.float32, copy=False))
-        return {
-            "mixture": mixture,
-            "target": torch.from_numpy(padded["target"].astype(np.float32, copy=False)),
-            "dna": dna,
-            "other_dna": torch.zeros_like(dna),
-            "unassigned_residual": mixture - dna,
-            "pitch": torch.tensor(int(row["pitch"]), dtype=torch.long),
-            "valid_samples": torch.tensor(valid_samples, dtype=torch.long),
-            "note_onset_samples": torch.tensor(onset, dtype=torch.long),
-            "note_offset_samples": torch.tensor(offset, dtype=torch.long),
-            "ordinal": torch.tensor(-(row_index + 1), dtype=torch.long),
-            "hard_case": torch.tensor(1, dtype=torch.long),
-            "pair_id": str(row["training_asset_id"]),
-            "sound_family": str(metadata.get("matched_score_family", "recorded")),
-            "source_group": f"recorded_real:{row['source_id']}",
-            "stratum": "recorded_real_train",
-        }
-
-    def close(self) -> None:
-        close = getattr(self.synthetic, "close", None)
-        if callable(close):
-            close()
 
 
-class RecordedValidationDataset(Dataset[dict[str, Any]]):
-    """Expose frozen recorded rows without stochastic cropping or padding."""
-
-    def __init__(self, rows: list[dict[str, Any]]) -> None:
-        self._adapter = MixedSyntheticRecordedDataset(Subset([], []), rows)  # type: ignore[arg-type]
-
-    def __len__(self) -> int:
-        return len(self._adapter.recorded_rows)
-
-    def __getitem__(self, index: int) -> dict[str, Any]:
-        samples = int(self._adapter.recorded_window_samples[index])
-        row = self._adapter[("recorded", index, samples)]
-        row["stratum"] = "recorded_real_validation"
-        return row
-
-
-class DeterministicMixedBatchSampler(Sampler[list[tuple[Any, ...]]]):
-    """Replace a deterministic fraction of synthetic slots with fitting real rows."""
-
-    def __init__(
-        self,
-        base_sampler: Iterable[list[Any]],
-        *,
-        recorded_window_samples: np.ndarray,
-        real_fraction: float,
-        fixed_samples: int,
-        seed: int,
-        start_step: int,
-    ) -> None:
-        self.base_sampler = base_sampler
-        self.recorded_window_samples = np.asarray(
-            recorded_window_samples, dtype=np.int64
-        )
-        self.real_fraction = float(real_fraction)
-        self.fixed_samples = int(fixed_samples)
-        self.seed = int(seed)
-        self.start_step = int(start_step)
-        if (
-            self.recorded_window_samples.ndim != 1
-            or len(self.recorded_window_samples) < 1
-            or np.any(self.recorded_window_samples < 1)
-        ):
-            raise ValueError("Recorded window lengths must be a positive vector")
-        if not 0.0 < self.real_fraction <= 1.0:
-            raise ValueError("Mixed sampler real fraction must be in (0, 1]")
-
-    def __len__(self) -> int:
-        return len(self.base_sampler)  # type: ignore[arg-type]
-
-    def _uniform(self, key: str) -> float:
-        digest = hashlib.sha256(f"{self.seed}:{key}".encode()).digest()
-        return int.from_bytes(digest[:8], "little") / float(2**64)
-
-    def __iter__(self) -> Iterable[list[tuple[Any, ...]]]:
-        for step, batch in enumerate(self.base_sampler, start=self.start_step):
-            exact = self.real_fraction * len(batch)
-            real_count = int(math.floor(exact))
-            if self._uniform(f"round:{step}") < exact - real_count:
-                real_count += 1
-            ranked_slots = sorted(
-                range(len(batch)), key=lambda slot: self._uniform(f"slot:{step}:{slot}")
-            )
-            real_slots = set(ranked_slots[:real_count])
-            used_real: set[int] = set()
-            output: list[tuple[Any, ...]] = []
-            for slot, synthetic_index in enumerate(batch):
-                if slot not in real_slots:
-                    output.append(("synthetic", synthetic_index))
-                    continue
-                requested = (
-                    int(synthetic_index[1])
-                    if isinstance(synthetic_index, tuple)
-                    else self.fixed_samples
-                )
-                eligible = np.flatnonzero(
-                    self.recorded_window_samples <= requested
-                ).tolist()
-                eligible = [index for index in eligible if index not in used_real]
-                if not eligible:
-                    raise ValueError(
-                        "No unused recorded complete-note row fits sampled window "
-                        f"of {requested} samples"
-                    )
-                selected = eligible[
-                    int(self._uniform(f"row:{step}:{slot}") * len(eligible))
-                    % len(eligible)
-                ]
-                used_real.add(selected)
-                output.append(("recorded", selected, requested))
-            yield output
-
-
-BandModel = (
-    DNAResidualBandExpert
-    | DNAResidualBandDualRegionExpert
-    | DNAResidualBandAttackContinuationExpert
-    | DNAResidualTFCTDFUNet
-)
-ResidualModel = DNAComplexResidualCorrector | BandModel
-
-
-def is_band_model(model: ResidualModel) -> bool:
-    return isinstance(
-        model,
-        (
-            DNAResidualBandExpert,
-            DNAResidualBandDualRegionExpert,
-            DNAResidualBandAttackContinuationExpert,
-            DNAResidualTFCTDFUNet,
-        ),
-    )
-
-
-def selected_model() -> ResidualModel:
-    if MODEL_KIND == "band_expert":
-        config = {
-            key: value for key, value in ACTIVE_MODEL_CONTRACT.items() if key != "kind"
-        }
-        return DNAResidualBandExpert(DNAResidualBandExpertConfig(**config))
-    if MODEL_KIND == "band_dual_region":
-        config = {
-            key: value for key, value in ACTIVE_MODEL_CONTRACT.items() if key != "kind"
-        }
-        return DNAResidualBandDualRegionExpert(
-            DNAResidualBandDualRegionExpertConfig(**config)
-        )
-    if MODEL_KIND == "band_attack_continuation":
-        config = {
-            key: value for key, value in ACTIVE_MODEL_CONTRACT.items() if key != "kind"
-        }
-        return DNAResidualBandAttackContinuationExpert(
-            DNAResidualBandAttackContinuationExpertConfig(**config)
-        )
-    if MODEL_KIND == "tfc_tdf_unet":
-        return DNAResidualTFCTDFUNet.from_preset(str(ACTIVE_MODEL_CONTRACT["preset"]))
-    return DNAComplexResidualCorrector(
-        DNAResidualCorrectorConfig(**ACTIVE_MODEL_CONTRACT)
-    )
+def selected_model() -> torch.nn.Module:
+    raise RuntimeError("Launch NoteGrab training through train.py")
 
 
 def build_optimizer(
@@ -959,38 +542,12 @@ def build_optimizer(
 
 
 def active_loss_contract() -> dict[str, Any]:
-    contract: dict[str, Any] = {"name": "free_target", **ACTIVE_BASE_LOSS_WEIGHTS}
-    if MODEL_KIND in {
-        "band_expert",
-        "band_dual_region",
-        "band_attack_continuation",
-        "tfc_tdf_unet",
-    }:
-        contract["band_complex_weight"] = BAND_COMPLEX_WEIGHT
-        contract["band_region_complex_weight"] = BAND_REGION_COMPLEX_WEIGHT
-    if HARMONIC_PARTIAL_LOSS is not None:
-        contract.update(HARMONIC_PARTIAL_WEIGHTS)
-    return contract
+    raise RuntimeError("Launch NoteGrab training through train.py")
 
 
-def configure_compilation(
-    model: ResidualModel,
-) -> None:
-    if COMPILE_MODE == "off":
-        return
-    if COMPILE_MODE == "full":
-        model.compile(dynamic=True, fullgraph=False)
-        return
-    if isinstance(model, DNAResidualTFCTDFUNet):
-        raise ValueError("TFC-TDF-UNet supports compile mode off or full, not regional")
-    if isinstance(model, DNAResidualBandDualRegionExpert):
-        blocks = [*model.active.temporal, *model.tail.temporal]
-    elif isinstance(model, DNAResidualBandExpert):
-        blocks = list(model.temporal)
-    else:
-        blocks = list(model.blocks)
-    for block in blocks:
-        block.compile(dynamic=True, fullgraph=False)
+def configure_compilation(model: torch.nn.Module) -> None:
+    """The paper recipe uses uncompiled training."""
+    del model
 
 
 def to_device(batch: dict[str, Any], device: torch.device) -> dict[str, Any]:
@@ -1000,227 +557,8 @@ def to_device(batch: dict[str, Any], device: torch.device) -> dict[str, Any]:
     }
 
 
-def band_complex_metrics(
-    *,
-    per_band_correction: torch.Tensor,
-    required_spectrum: torch.Tensor,
-    band_weights: torch.Tensor,
-    band_scales: torch.Tensor,
-    frame_support: torch.Tensor,
-    note_onset_samples: torch.Tensor,
-    note_offset_samples: torch.Tensor,
-    hop_length: int,
-    attack_samples: int = 1_600,
-) -> dict[str, torch.Tensor]:
-    """Return frequency- and region-macro normalized correction errors.
-
-    The global metric averages over every valid frame. The region metric first
-    averages attack, sustain, and post-offset independently, then gives each
-    non-empty region equal weight. This prevents long tails or sustains from
-    dominating merely because they contain more STFT frames.
-    """
-
-    target_by_band = required_spectrum[:, None] * band_weights[None, :, :, None]
-    error = (per_band_correction - target_by_band).abs()
-    error = error / band_scales[:, :, None, None].clamp_min(1e-6)
-    frequency_support = band_weights > 0
-    support = frequency_support[None, :, :, None] & frame_support[:, None, None, :]
-    count = support.sum(dim=(-2, -1)).clamp_min(1)
-    per_band = (error * support).sum(dim=(-2, -1)) / count
-    metrics = {"band_complex_macro": per_band.mean()}
-    for index, value in enumerate(per_band.mean(dim=0)):
-        metrics[f"band_complex_{index:02d}"] = value
-
-    frames = frame_support.shape[-1]
-    frame_samples = torch.arange(frames, device=frame_support.device)[None] * int(
-        hop_length
-    )
-    onset = note_onset_samples.long()[:, None]
-    offset = note_offset_samples.long()[:, None]
-    attack_end = torch.minimum(offset, onset + int(attack_samples))
-    region_frames = {
-        "attack": (frame_samples >= onset) & (frame_samples < attack_end),
-        "sustain": (frame_samples >= attack_end) & (frame_samples < offset),
-        "post_offset": frame_samples >= offset,
-    }
-    region_values = []
-    for name, region in region_frames.items():
-        region = region & frame_support
-        region_support = support & region[:, None, None, :]
-        region_count = region_support.sum(dim=(-2, -1))
-        per_region_band = (error * region_support).sum(dim=(-2, -1)) / (
-            region_count.clamp_min(1)
-        )
-        present = region.any(dim=-1)
-        present_count = present.sum().clamp_min(1)
-        value = (per_region_band.mean(dim=1) * present).sum() / present_count
-        metrics[f"band_complex_region_{name}"] = value
-        if torch.any(present):
-            region_values.append(value)
-    metrics["band_complex_region_macro"] = (
-        torch.stack(region_values).mean() if region_values else error.new_zeros(())
-    )
-    return metrics
-
-
-def forward_metrics(
-    model: ResidualModel,
-    batch: dict[str, Any],
-) -> dict[str, torch.Tensor]:
-    if is_band_model(model):
-        estimate, diagnostics = model(
-            batch["mixture"],
-            batch["dna"],
-            batch["other_dna"],
-            batch["unassigned_residual"],
-            batch["pitch"].long(),
-            batch["valid_samples"].long(),
-            batch["note_onset_samples"].long(),
-            batch["note_offset_samples"].long(),
-        )
-    else:
-        timing_kwargs = {}
-        if model.config.use_timing_features:
-            timing_kwargs = {
-                "note_onset_samples": batch["note_onset_samples"].long(),
-                "note_offset_samples": batch["note_offset_samples"].long(),
-            }
-        estimate, diagnostics = model(
-            batch["mixture"],
-            batch["dna"],
-            batch["pitch"].long(),
-            valid_samples=batch["valid_samples"].long(),
-            other_dna=batch["other_dna"],
-            unassigned_residual=batch["unassigned_residual"],
-            **timing_kwargs,
-        )
-    metrics = dna_residual_losses(
-        estimate,
-        batch["target"],
-        batch["dna"],
-        diagnostics["correction"],
-        valid_samples=batch["valid_samples"].long(),
-        **ACTIVE_BASE_LOSS_WEIGHTS,
-    )
-    if HARMONIC_PARTIAL_LOSS is not None:
-        partial = HARMONIC_PARTIAL_LOSS(
-            estimate,
-            batch["target"],
-            batch["pitch"],
-            batch["valid_samples"],
-            batch["note_onset_samples"],
-            batch["note_offset_samples"],
-        )
-        metrics.update(
-            {
-                "harmonic_partial": partial.partial_energy,
-                "off_partial_hallucination": partial.off_partial_hallucination,
-                "temporal_partial_jaggedness": partial.temporal_jaggedness,
-                "harmonic_partial_signed": partial.diagnostics[
-                    "bounded_signed_partial_error"
-                ],
-            }
-        )
-        metrics["loss"] = metrics["loss"] + partial.total
-    if is_band_model(model):
-        required = (batch["target"] - batch["dna"]) / diagnostics["level"]
-        required_spectrum = model._stft(required)
-        band_metrics = band_complex_metrics(
-            per_band_correction=diagnostics["per_band_correction_spectra"],
-            required_spectrum=required_spectrum,
-            band_weights=diagnostics["band_weights"],
-            band_scales=diagnostics["band_scales"],
-            frame_support=diagnostics["frame_support"],
-            note_onset_samples=batch["note_onset_samples"],
-            note_offset_samples=batch["note_offset_samples"],
-            hop_length=model.config.hop_length,
-        )
-        metrics.update(band_metrics)
-        metrics["loss"] = (
-            metrics["loss"] + BAND_COMPLEX_WEIGHT * metrics["band_complex_macro"]
-        )
-        metrics["loss"] = (
-            metrics["loss"]
-            + BAND_REGION_COMPLEX_WEIGHT * metrics["band_complex_region_macro"]
-        )
-    samples = batch["target"].shape[-1]
-    mask = (
-        torch.arange(samples, device=batch["target"].device)[None, :]
-        < batch["valid_samples"].long()[:, None]
-    ).to(batch["target"].dtype)
-    required = (batch["target"] - batch["dna"]) * mask
-    correction = diagnostics["correction"] * mask
-    counts = mask.sum(dim=-1).clamp_min(1.0)
-    required_energy = required.square().sum(dim=-1)
-    correction_energy = correction.square().sum(dim=-1)
-    dot = (required * correction).sum(dim=-1)
-    required_rms = torch.sqrt(required_energy / counts + 1e-12)
-    correction_rms = torch.sqrt(correction_energy / counts + 1e-12)
-    residual_error_rms = torch.sqrt(
-        ((correction - required).square().sum(dim=-1) / counts) + 1e-12
-    )
-    active = required_rms > 1e-5
-    active_count = active.sum().clamp_min(1)
-
-    def active_mean(value: torch.Tensor) -> torch.Tensor:
-        return (value * active).sum() / active_count
-
-    metrics.update(
-        {
-            "required_residual_rms": active_mean(required_rms),
-            "predicted_correction_rms": active_mean(correction_rms),
-            "correction_required_rms_ratio": active_mean(
-                correction_rms / required_rms.clamp_min(1e-5)
-            ),
-            "residual_error_rms_ratio": active_mean(
-                residual_error_rms / required_rms.clamp_min(1e-5)
-            ),
-            "correction_required_cosine": active_mean(
-                dot / torch.sqrt(required_energy * correction_energy + 1e-12)
-            ),
-            "correction_required_projection": active_mean(
-                dot / required_energy.clamp_min(1e-10)
-            ),
-            "required_residual_active_fraction": active.float().mean(),
-        }
-    )
-    positions = torch.arange(samples, device=batch["target"].device)[None, :]
-    onset = batch.get(
-        "note_onset_samples", torch.zeros_like(batch["valid_samples"])
-    ).long()[:, None]
-    offset = batch.get("note_offset_samples", batch["valid_samples"]).long()[:, None]
-    attack_end = torch.minimum(offset, onset + 1_600)
-    region_masks = {
-        "pre_onset": (positions < onset).to(mask.dtype) * mask,
-        "attack": ((positions >= onset) & (positions < attack_end)).to(mask.dtype)
-        * mask,
-        "sustain": ((positions >= attack_end) & (positions < offset)).to(mask.dtype)
-        * mask,
-        "post_offset": (positions >= offset).to(mask.dtype) * mask,
-    }
-    required_total_energy = required_energy.clamp_min(1e-12)
-    correction_total_energy = correction_energy.clamp_min(1e-12)
-    for region, region_mask in region_masks.items():
-        region_count = region_mask.sum(dim=-1).clamp_min(1.0)
-        required_region_energy = (required.square() * region_mask).sum(dim=-1)
-        correction_region_energy = (correction.square() * region_mask).sum(dim=-1)
-        target_region_rms = torch.sqrt(
-            (batch["target"].square() * region_mask).sum(dim=-1) / region_count + 1e-12
-        )
-        dna_region_rms = torch.sqrt(
-            (batch["dna"].square() * region_mask).sum(dim=-1) / region_count + 1e-12
-        )
-        metrics[f"required_residual_energy_fraction_{region}"] = active_mean(
-            required_region_energy / required_total_energy
-        )
-        metrics[f"predicted_correction_energy_fraction_{region}"] = active_mean(
-            correction_region_energy / correction_total_energy
-        )
-        metrics[f"target_rms_{region}"] = active_mean(target_region_rms)
-        metrics[f"dna_target_rms_ratio_{region}"] = active_mean(
-            dna_region_rms / target_region_rms.clamp_min(1e-5)
-        )
-    return metrics
+def forward_metrics(model: torch.nn.Module, batch: dict[str, Any]) -> dict[str, torch.Tensor]:
+    raise RuntimeError("Launch NoteGrab training through train.py")
 
 
 def lr_decay_steps(args: argparse.Namespace) -> int:
@@ -1343,138 +681,11 @@ def localize_family_ordinals(
     return localized
 
 
-def load_duration_windows(
-    path: Path,
-    *,
-    pairs: int,
-    binding: dict[str, Any],
-    args: argparse.Namespace,
-    acoustic_release_samples: np.ndarray | None = None,
-) -> np.ndarray:
-    source = path.expanduser().resolve()
-    contract_path = (
-        source / "CONTRACT.json"
-        if source.is_dir()
-        else source.with_name("CONTRACT.json")
-    )
-    index_path = source / "duration_geometry.npy" if source.is_dir() else source
-    index_contract = _read_json(contract_path)
-    expected = {
-        "schema": "literal_residual_v13_duration_geometry_v1",
-        "status": "passed",
-        "immutable": True,
-        "split": "train",
-        "corpus_id": str(binding["corpus_id"]),
-        "rows": pairs,
-        "frozen_manifest_sha256": str(binding["frozen_sha256"]),
-        "train_split_manifest_sha256": str(binding["split_manifest_sha256s"]["train"]),
-    }
-    mismatches = {
-        key: (index_contract.get(key), value)
-        for key, value in expected.items()
-        if index_contract.get(key) != value
-    }
-    if mismatches:
-        raise ValueError(f"Duration index contract changed: {mismatches}")
-    array_contract = index_contract.get("array")
-    if not isinstance(array_contract, dict) or sha256_file(
-        index_path
-    ) != array_contract.get("sha256"):
-        raise ValueError("Duration index array hash mismatch")
-    payload = np.load(index_path, mmap_mode="r", allow_pickle=False)
-    required = {"ordinal", "total_samples", "onset_sample", "offset_sample"}
-    names = set(payload.dtype.names or ())
-    if not required.issubset(names):
-        raise ValueError(f"Duration index lacks {sorted(required - names)}")
-    if payload.shape != (pairs,) or not np.array_equal(
-        payload["ordinal"], np.arange(pairs, dtype=payload["ordinal"].dtype)
-    ):
-        raise ValueError("Duration index does not align one-to-one with train ordinals")
-    total = np.asarray(payload["total_samples"], dtype=np.int64)
-    onset = np.asarray(payload["onset_sample"], dtype=np.int64)
-    offset = np.asarray(payload["offset_sample"], dtype=np.int64)
-    if any(array.shape != (pairs,) for array in (total, onset, offset)):
-        raise ValueError("Duration index does not align one-to-one with train ordinals")
-    if (
-        np.any(total < 1024)
-        or np.any(onset < 0)
-        or np.any(offset < onset)
-        or np.any(offset > total)
-    ):
-        raise ValueError("Duration index contains invalid note geometry")
-    release = np.full(pairs, int(args.release_samples), dtype=np.int64)
-    if acoustic_release_samples is not None:
-        if acoustic_release_samples.shape != (pairs,):
-            raise ValueError("Acoustic release index does not align with duration index")
-        release = np.maximum(release, acoustic_release_samples)
-    natural = np.maximum(
-        int(args.minimum_window_samples),
-        offset - onset + int(args.lead_samples) + release,
-    )
-    quantum = int(args.window_quantum)
-    windows = np.minimum(total, ((natural + quantum - 1) // quantum) * quantum)
-    windows = np.maximum(windows, offset - onset).astype(np.int64, copy=False)
-    if np.any(windows > int(args.audio_budget_samples)):
-        raise ValueError(
-            "Audio budget is smaller than at least one complete-note window"
-        )
-    windows.setflags(write=False)
-    return windows
-
-
-def acoustic_offset_marker_digest(source: Path) -> str:
-    markers = sorted(source.glob("acoustic_offsets_*_of_*.json"))
-    if not markers:
-        raise FileNotFoundError(f"No acoustic-offset markers under {source}")
-    digest = hashlib.sha256()
-    for marker in markers:
-        digest.update(marker.name.encode())
-        digest.update(bytes.fromhex(sha256_file(marker)))
-    return digest.hexdigest()
-
-
-def load_acoustic_release_samples(source: Path | None, *, pairs: int) -> np.ndarray | None:
-    """Load and strictly validate completed ordinal-aligned acoustic releases."""
-
-    if source is None:
-        return None
-    root = source.expanduser().resolve()
-    markers = sorted(root.glob("acoustic_offsets_*_of_*.json"))
-    if not markers:
-        raise FileNotFoundError(f"No acoustic-offset markers under {root}")
-    result = np.full(pairs, -1, dtype=np.int32)
-    expected_shards: int | None = None
-    for marker_path in markers:
-        marker = _read_json(marker_path)
-        if marker.get("schema") != "synthetic_acoustic_offset_sidecar_shard_v1":
-            raise ValueError(f"Wrong acoustic-offset schema: {marker_path}")
-        shard_id = int(marker["shard_id"])
-        num_shards = int(marker["num_shards"])
-        if expected_shards is None:
-            expected_shards = num_shards
-        if num_shards != expected_shards:
-            raise ValueError("Acoustic-offset shard counts disagree")
-        array_path = root / str(marker["array"])
-        payload = np.load(array_path, mmap_mode="r", allow_pickle=False)
-        begin, end = int(marker["begin"]), int(marker["end"])
-        if shard_id < 0 or end - begin != len(payload) or int(marker["count"]) != len(payload):
-            raise ValueError(f"Invalid acoustic-offset shard geometry: {marker_path}")
-        expected = np.arange(begin, end, dtype=payload["ordinal"].dtype)
-        if not np.array_equal(payload["ordinal"], expected):
-            raise ValueError(f"Acoustic-offset ordinals changed: {array_path}")
-        release = np.asarray(payload["release_samples"], dtype=np.int64)
-        if np.any(release < 0) or np.any(release > np.iinfo(np.int32).max):
-            raise ValueError(f"Invalid acoustic releases: {array_path}")
-        result[begin:end] = release.astype(np.int32)
-    if expected_shards != len(markers) or np.any(result < 0):
-        raise ValueError("Acoustic-offset index is incomplete")
-    result.setflags(write=False)
-    return result
 
 
 @torch.inference_mode()
 def evaluate(
-    model: DNAComplexResidualCorrector,
+    model: torch.nn.Module,
     loader: Iterable[dict[str, Any]],
     *,
     device: torch.device,
@@ -1537,7 +748,7 @@ def retain_numbered_checkpoint(
 
 def checkpoint_payload(
     *,
-    model: DNAComplexResidualCorrector,
+    model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     global_step: int,
     best_score: float,
@@ -1583,7 +794,7 @@ def checkpoint_payload(
 def restore_checkpoint(
     checkpoint_path: Path,
     *,
-    model: DNAComplexResidualCorrector,
+    model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     binding: dict[str, Any],
     args: argparse.Namespace,
@@ -1671,7 +882,7 @@ def restore_checkpoint(
 def initialize_model_checkpoint(
     checkpoint_path: Path,
     *,
-    model: DNAComplexResidualCorrector,
+    model: torch.nn.Module,
     device: torch.device,
     allow_loss_contract_change: bool = False,
     allow_output_carrier_mode_change: bool = False,
@@ -1821,10 +1032,7 @@ def validate_resume_run_contract(
         difference = first_contract_difference(old, new)
         detail = "unknown difference" if difference is None else repr(difference)
         raise ValueError(f"Resume run contract changed: {detail}")
-    # Model-only initialization is historical provenance of the run being
-    # resumed. It is not reconstructed by --resume (which restores the whole
-    # checkpoint instead), so carry the immutable saved binding into the
-    # comparison instead of misclassifying the continuation as from-scratch.
+    # Resume restores the full checkpoint, including its initialization.
     if new.get("initialization") is None and old.get("initialization") is not None:
         new["initialization"] = old["initialization"]
         new["trained_from_scratch"] = old.get("trained_from_scratch", False)
@@ -1869,57 +1077,6 @@ def json_safe_argument(value: Any) -> Any:
     return value
 
 
-def load_synthetic_ordinal_view(
-    path: Path | None,
-    *,
-    contract: FrozenV13Contract,
-) -> tuple[np.ndarray | None, np.ndarray | None, dict[str, Any] | None]:
-    """Load a hash-bound, mixture-disjoint view into the frozen train split."""
-
-    if path is None:
-        return None, None, None
-    source = path.expanduser().resolve()
-    raw = _read_json(source)
-    if raw.get("schema") != "occurrence_synthetic_ordinal_view_v1":
-        raise ValueError("Synthetic ordinal view has the wrong schema")
-    expected_binding = contract.checkpoint_binding()
-    if raw.get("frozen_sha256") != expected_binding["frozen_sha256"]:
-        raise ValueError("Synthetic ordinal view is bound to another freeze")
-
-    arrays: dict[str, np.ndarray] = {}
-    for split in ("train", "validation"):
-        values = raw.get(f"{split}_ordinals")
-        if not isinstance(values, list) or not values:
-            raise ValueError(f"Synthetic ordinal view has no {split} ordinals")
-        if any(isinstance(value, bool) or not isinstance(value, int) for value in values):
-            raise ValueError(f"Synthetic ordinal view {split} ordinals are not integers")
-        array = np.asarray(values, dtype=np.int64)
-        if len(np.unique(array)) != len(array):
-            raise ValueError(f"Synthetic ordinal view repeats {split} ordinals")
-        if int(array.min()) < 0 or int(array.max()) >= int(
-            contract.split_pairs["train"]
-        ):
-            raise ValueError(f"Synthetic ordinal view {split} ordinal is out of range")
-        arrays[split] = array
-    overlap = np.intersect1d(arrays["train"], arrays["validation"])
-    if len(overlap):
-        raise ValueError("Synthetic ordinal view train/validation rows overlap")
-    if int(raw.get("mixture_overlap", -1)) != 0:
-        raise ValueError("Synthetic ordinal view does not certify mixture disjointness")
-    declared = raw.get("counts")
-    observed = {key: int(len(value)) for key, value in arrays.items()}
-    if declared != observed:
-        raise ValueError(
-            f"Synthetic ordinal view counts changed: {declared!r} != {observed!r}"
-        )
-    binding = {
-        "schema": str(raw["schema"]),
-        "path": str(source),
-        "sha256": sha256_file(source),
-        "counts": observed,
-        "mixture_overlap": 0,
-    }
-    return arrays["train"], arrays["validation"], binding
 
 
 def load_priority_ordinals(
@@ -1962,28 +1119,6 @@ def load_priority_ordinals(
     return values
 
 
-class SyntheticOrdinalViewDataset(Dataset[dict[str, Any]]):
-    """Map local sampler indices, including dynamic-window tuples, to ordinals."""
-
-    def __init__(
-        self,
-        dataset: V13StreamingResidualDataset,
-        ordinals: np.ndarray,
-    ) -> None:
-        self.dataset = dataset
-        self.ordinals = np.asarray(ordinals, dtype=np.int64)
-
-    def __len__(self) -> int:
-        return int(len(self.ordinals))
-
-    def __getitem__(self, index: int | tuple[int, int]) -> dict[str, Any]:
-        if isinstance(index, tuple):
-            local, requested_samples = map(int, index)
-            return self.dataset[(int(self.ordinals[local]), requested_samples)]
-        return self.dataset[int(self.ordinals[int(index)])]
-
-    def close(self) -> None:
-        self.dataset.close()
 
 
 def append_metric(path: Path, record: dict[str, Any]) -> None:
@@ -2739,7 +1874,3 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"JSON object required: {path}")
     return value
-
-
-if __name__ == "__main__":
-    main()

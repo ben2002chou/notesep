@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Balance recorded source libraries while keeping instrument coverage."""
 
 from __future__ import annotations
@@ -35,13 +34,7 @@ def canonical_instrument(value: str) -> str:
 
 
 def validate_combined_coverage_or_supplemental_roster(present: set[str]) -> None:
-    """Fail closed unless supplemental or aggregate training proves all 16."""
-    require_supplemental = os.environ.get("SCNS_REQUIRE_ALL_16_RECORDED_FAMILIES", "1") == "1"
-    if require_supplemental:
-        missing = sorted(FAMILIES - present)
-        if missing:
-            raise ValueError("supplemental roots lack required families: " + ", ".join(missing))
-        return
+    """Check aggregate coverage and the required recorded instruments."""
     authority_value = os.environ.get("SCNS_V3_COMBINED_INSTRUMENT_COVERAGE_AUTHORITY", "")
     if not authority_value:
         raise ValueError(
@@ -50,18 +43,15 @@ def validate_combined_coverage_or_supplemental_roster(present: set[str]) -> None
     authority = json.loads(Path(authority_value).expanduser().resolve().read_text())
     if authority.get("status") != "passed" or set(authority.get("aggregate_instruments", ())) != FAMILIES:
         raise ValueError("combined instrument coverage authority is not passed exact-all-16")
-    # A tiny plumbing canary is intentionally only representative. Full
-    # materialization is checked against the complete supplemental roster.
-    if os.environ.get("SCNS_V3_ALLOW_REPRESENTATIVE_CANARY", "0") != "1":
-        declared = {
-            canonical_instrument(value) for value in
-            os.environ.get("SCNS_V3_REQUIRED_SUPPLEMENTAL_FAMILIES", "").split(",") if value
-        }
-        if declared != SCORE_BOUND_SUPPLEMENTAL_FAMILIES:
-            raise ValueError("required score-bound supplemental roster must be exact truthful 14")
-        missing = declared - present
-        if missing:
-            raise ValueError("loaded supplemental roots lack: " + ", ".join(sorted(missing)))
+    declared = {
+        canonical_instrument(value) for value in
+        os.environ.get("SCNS_V3_REQUIRED_SUPPLEMENTAL_FAMILIES", "").split(",") if value
+    }
+    if declared != SCORE_BOUND_SUPPLEMENTAL_FAMILIES:
+        raise ValueError("Required supplemental instrument families do not match")
+    missing = declared - present
+    if missing:
+        raise ValueError("Loaded supplemental data is missing: " + ", ".join(sorted(missing)))
 
 
 class LibraryBalancedInterleavedSampler(trackbound.SourceLibraryThenSoundSampler):
@@ -259,7 +249,3 @@ def validate_mix_args(args: Any) -> None:
 trackbound.v1.base.DeterministicMixedBatchSampler = LibraryBalancedInterleavedSampler
 trackbound.v1.base.sampler_contract = sampler_contract
 trackbound.v1.base.validate_recorded_mix_args = validate_mix_args
-
-
-if __name__ == "__main__":
-    trackbound.v1.base.main()

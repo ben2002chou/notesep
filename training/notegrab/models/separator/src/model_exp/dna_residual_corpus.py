@@ -15,7 +15,7 @@ import sqlite3
 import numpy as np
 
 from .dna_residual_store import DNA_KIND, MIXTURE_KIND, RT2_KIND, TARGET_KIND
-from .packed_blob_shards import PackedBlobShardReader
+from notesep.shards import PackedBlobShardReader
 
 
 @dataclass(frozen=True)

@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from .shards import PackedBlobShardReader
+from notesep.shards import PackedBlobShardReader
 
 
 # A crop-edge fragment is still part of the exact additive source bank, but it

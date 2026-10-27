@@ -23,7 +23,7 @@ from notesep.models.hpss_separator import (  # noqa: E402
 from notesep.training_paths import configure  # noqa: E402
 from training.aso.dataset import KIND, recorded_example  # noqa: E402
 from training.aso.datasets.recorded import RecordedNaturalScoreSceneDataset  # noqa: E402
-from training.aso.datasets.shards import PackedBlobShardReader, PackedBlobShardWriter  # noqa: E402
+from notesep.shards import PackedBlobShardReader, PackedBlobShardWriter  # noqa: E402
 from training.aso.datasets.synthetic import FreshSourceCompleteDataset  # noqa: E402
 from training.aso.train import (  # noqa: E402
     FRESH_SHA256,
@@ -146,6 +146,27 @@ def load_separator(checkpoint: Path, device: torch.device):
     return model.to(device).eval(), separator_sha
 
 
+def planned_units(root: Path, count: int, size: int = 256):
+    """Resume completed units and group remaining mixtures into larger units."""
+    completed = sorted(root.glob("unit-[0-9][0-9][0-9][0-9][0-9]"))
+    position = 0
+    for index, path in enumerate(completed):
+        if path.name != f"unit-{index:05d}":
+            raise ValueError("Completed estimate units are not consecutive")
+        marker = json.loads((path / "UNIT_COMPLETE.json").read_text())
+        mixtures = int(marker["mixtures"])
+        if mixtures < 1 or position + mixtures > count:
+            raise ValueError("Completed estimate unit has an invalid size")
+        yield index, position, position + mixtures
+        position += mixtures
+    index = len(completed)
+    while position < count:
+        stop = min(position + size, count)
+        yield index, position, stop
+        index += 1
+        position = stop
+
+
 def generate(data_root: Path, checkpoint: Path, output: Path):
     proposal, recorded = data_paths(data_root)
     if not torch.cuda.is_available():
@@ -199,14 +220,9 @@ def generate(data_root: Path, checkpoint: Path, output: Path):
             count = population
             mixtures = sources = 0
             try:
-                for start in range(0, count, 8):
-                    unit = (
-                        output
-                        / kind
-                        / split
-                        / "tasks/task-000/units"
-                        / f"unit-{start // 8:05d}"
-                    )
+                units_root = output / kind / split / "tasks/task-000/units"
+                for unit_index, start, stop in planned_units(units_root, count):
+                    unit = units_root / f"unit-{unit_index:05d}"
                     if unit.exists():
                         marker = json.loads((unit / "UNIT_COMPLETE.json").read_text())
                         if marker["config_sha256"] != identity or marker[
@@ -224,7 +240,7 @@ def generate(data_root: Path, checkpoint: Path, output: Path):
                     temporary.mkdir(parents=True)
                     writer = PackedBlobShardWriter(temporary / "packed", prefix="notes")
                     rows = []
-                    for index in range(start, min(start + 8, count)):
+                    for index in range(start, stop):
                         example = get_example(index)
                         estimates = infer_notes(model, example, device)
                         identifiers = []

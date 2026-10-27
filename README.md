@@ -97,8 +97,19 @@ uv run notesep download-data --repo-id ben2002chou/notesep-benchmarks --output d
 
 `evaluation.json` describes note requests and scoring crops. `editing.json`
 contains the fixed gain, pitch, timing and tuning edits. Each `pieces/` folder
-has its mixture, aligned score and isolated-note archive. Keep this benchmark
-out of training.
+has its mixture, aligned score and isolated-note archive. The public benchmark
+includes 11 replacement recordings; the released checkpoints score 7.44 dB
+median SI-SDR on this version. Keep this benchmark out of training.
+
+To evaluate the paper checkpoints on SCNS-Eval:
+
+```sh
+uv run python -m notesep.evaluate data/benchmark --output results/evaluation.json
+```
+
+The output contains per-note scores and the summary metrics from the paper.
+To evaluate your own checkpoints, pass `--weights` with a directory containing
+`separator.pt` and `aso.pt`.
 
 ## Editing notes
 
@@ -127,6 +138,7 @@ uv run notesep baseline src/notesep/studio_static/examples/mixture.wav \
 ```
 
 It writes the same project format as neural inference.
+On the public SCNS-Eval benchmark, this baseline scores 1.84 dB median SI-SDR.
 
 </details>
 
