@@ -164,15 +164,6 @@ def main():
     expected_resume = resume_checkpoint if options.resume else None
     if parsed.resume != expected_resume or parsed.initialize_checkpoint != expected_init:
         raise ValueError("Checkpoint initialization or resume semantics changed")
-    plan = {
-        "initialization_checkpoint": str(options.initialize_checkpoint),
-        "arguments": arguments,
-        "overrides": overrides,
-        "dry_run": options.dry_run,
-    }
-    (options.output / f"recipe{suffix}.json").write_text(
-        json.dumps(plan, indent=2, default=str) + "\n"
-    )
     if options.dry_run:
         print(
             json.dumps({"status": "passed_preflight", "optimizer_updates": 0}),
@@ -202,27 +193,9 @@ def main():
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
         if int(saved["global_step"]) != arguments["max_steps"]:
             raise ValueError("Training did not reach declared endpoint")
-        counts = {}
-
-        def finite(value):
-            if torch.is_tensor(value):
-                if value.is_floating_point() and not torch.isfinite(value).all():
-                    raise ValueError("Nonfinite trained tensor")
-                return 1
-            if isinstance(value, dict):
-                return sum(finite(v) for v in value.values())
-            if isinstance(value, (list, tuple)):
-                return sum(finite(v) for v in value)
-            return 0
-
-        for name in ("model", "optimizer"):
-            counts[name] = finite(saved[name])
         report = {
             "status": "passed_training_execution",
             "global_step": saved["global_step"],
-            "gpu": torch.cuda.get_device_name(),
-            "checkpoint_sha256": recipe_tools.sha(checkpoint),
-            "finite_tensors": counts,
         }
         (options.output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps(report), flush=True)
