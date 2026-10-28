@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import hashlib
 import io
 import json
+import logging
 import os
 from pathlib import Path
 from notesep.training_paths import relocated
@@ -22,6 +23,8 @@ from urllib.parse import quote
 
 import numpy as np
 
+
+logger = logging.getLogger(__name__)
 
 PACKED_BLOB_SCHEMA = "packed_blob_shards_v1"
 
@@ -380,6 +383,11 @@ class PackedBlobShardReader:
         require_complete: bool = True,
         buffer_bytes: int = 64 * 1024,
     ) -> None:
+        self._pid = os.getpid()
+        self._connection: sqlite3.Connection | None = None
+        self._fds: dict[str, int] = {}
+        self._pread_calls = 0
+        self._pread_bytes = 0
         path = relocated(manifest)
         self.index_path = path / "manifest.sqlite" if path.is_dir() else path
         self.root = self.index_path.parent
@@ -390,11 +398,6 @@ class PackedBlobShardReader:
             raise FileNotFoundError(self.index_path)
         if require_complete and not (self.root / "COMPLETE.json").is_file():
             raise FileNotFoundError(self.root / "COMPLETE.json")
-        self._pid = os.getpid()
-        self._connection: sqlite3.Connection | None = None
-        self._fds: dict[str, int] = {}
-        self._pread_calls = 0
-        self._pread_bytes = 0
 
     def _reset_after_fork(self) -> None:
         if self._connection is not None:
@@ -445,8 +448,8 @@ class PackedBlobShardReader:
     def __del__(self) -> None:
         try:
             self.close()
-        except Exception:
-            pass
+        except (OSError, sqlite3.Error):
+            logger.warning("Could not close a packed audio shard", exc_info=True)
 
     def __len__(self) -> int:
         row = self._db().execute("SELECT COUNT(*) FROM assets").fetchone()

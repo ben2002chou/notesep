@@ -547,7 +547,9 @@ async function fitFrame(){
     });
     frameFitObserver.observe(editor);
     fit();
-  }catch{}
+  }catch(error){
+    console.warn('Could not resize the score editor.',error);
+  }
 }
 ui.frame.addEventListener('load',fitFrame);
 fitFrame();
@@ -583,7 +585,10 @@ window.addEventListener('message',event=>{
     if(state.session)update();
   }
 });
-ui.original.addEventListener('play',async()=>{try{(await api()).pause();}catch{}});
+ui.original.addEventListener('play',async()=>{
+  try{(await api()).pause();}
+  catch(error){console.warn('Could not pause the score editor playback.',error);}
+});
 fetch('/notesep-config',{cache:'no-store'}).then(response=>response.ok?response.json():null).then(value=>{
   if(!value)return;config={...config,...value};
   if(Array.isArray(config.providers)){
@@ -591,7 +596,7 @@ fetch('/notesep-config',{cache:'no-store'}).then(response=>response.ok?response.
     ui.provider.value=config.defaultProvider||config.providers[0]?.id||'yourmt3';
   }
   updateTranscriptionPrivacy();
-}).catch(()=>{});
+}).catch(error=>console.warn('Could not load Studio settings; using defaults.',error));
 report('Choose a short recording to begin.');update();
 
 exportsUI.score.addEventListener("click",()=>busy(async()=>{(await api()).downloadScore();},"export"));
