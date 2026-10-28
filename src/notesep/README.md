@@ -105,6 +105,7 @@ uv run python -m notesep.instrument_evaluate --dataset bach10 \
 | `cli.py` | Command-line arguments and command dispatch. |
 | `inference.py` | Load checkpoints, estimate notes, and apply ASO. |
 | `evaluate.py` | Reproduce separation scores on SCNS-Eval. |
+| `editing_evaluate.py` | Evaluate note edits on SCNS-Edit. |
 | `instrument_evaluate.py` | Separate and evaluate the paper's instrument tracks. |
 | `instrument_data.py` | Read and score the instrument evaluation datasets. |
 | `assets.py` | Download and verify the released checkpoints. |

@@ -112,6 +112,20 @@ For PHENICX and Bach10, see the [instrument evaluation instructions](src/notesep
 To evaluate your own checkpoints, pass `--weights` with a directory containing
 `separator.pt` and `aso.pt`.
 
+To evaluate edits on SCNS-Edit, install the training dependencies and build
+[peaqb-fast](https://github.com/akinori-ito/peaqb-fast). Then run:
+
+```sh
+uv sync --extra train
+uv run python -m notesep.editing_evaluate data/benchmark \
+  --peaq path/to/peaqb-fast/src/peaqb --output results/editing.json
+```
+
+The output reports 2f scores for each edit and their means and medians. To use
+different checkpoints, pass `--weights` with a folder containing `separator.pt`
+and `aso.pt`. The editing table in the paper used a different checkpoint pair
+from the public SCNS-Eval models.
+
 ## Editing notes
 
 The optional Studio provides an audio player and piano-roll editor:
