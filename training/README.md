@@ -92,10 +92,9 @@ endpoints for training. All cached estimates are checked before use; the cache
 must come from the checkpoint supplied to ASO training. Estimates cover only the
 training and validation selections.
 
-ASO runs 30,000 updates. After one pass through the training schedule, it
-repeats its first 942 mixtures. It saves `RESUME.pt` for automatic resume and
+ASO runs 30,000 updates. It saves `RESUME.pt` for automatic resume and
 `checkpoint-step-030000.pt` at the final step. Repeating its command resumes an
-interrupted run. The published paper checkpoint was trained for 29,058 updates.
+interrupted run.
 
 ## Use the trained models
 

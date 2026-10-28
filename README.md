@@ -81,6 +81,15 @@ uv run python train.py stage=aso run.dir=outputs/aso \
 Training uses CUDA and [Hydra configs](configs/README.md). Both datasets are public downloads. See the [training guide](training/README.md)
 for disk requirements, data layouts and checkpoint outputs.
 
+## Results
+
+Median SI-SDR on the original SCNS-Eval test set (3,473 notes):
+
+| Model | SI-SDR (dB) ↑ |
+| --- | ---: |
+| Paper checkpoints | 7.39 |
+| Reproduced training, ASO at 30,000 steps | 7.49 |
+
 ## Datasets
 
 Training and evaluation are separate downloads. NoteGrab uses mixture/target
