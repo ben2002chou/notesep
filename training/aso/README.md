@@ -30,3 +30,7 @@ boundaries are included for the waveform loss. The STFT uses 16 kHz audio, a
 The loss combines waveform distortion, ownership cross-entropy, and temporal
 smoothness. Checkpoints contain model weights, optimizer state, step count,
 and the data and recipe settings needed to resume.
+
+Training logs include the latest mixture's `loss`, the `mean_loss` over the
+logged window, and `loss_by_source` for synthetic and recorded mixtures.
+`loss_window_steps` gives the number of updates in that average.

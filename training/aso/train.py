@@ -380,6 +380,8 @@ def main() -> int:
         history = list(payload["history"])
 
     started = time.monotonic()
+    loss_sums: dict[str, torch.Tensor] = {}
+    loss_counts: dict[str, int] = {}
     try:
         for position in range(start, len(schedule)):
             kind, index = schedule[position]
@@ -397,10 +399,24 @@ def main() -> int:
                 raise ValueError("nonfinite gradient")
             optimizer.step()
             done = position + 1
+            batch_loss = loss.detach()
+            if kind not in loss_sums:
+                loss_sums[kind] = batch_loss.clone()
+                loss_counts[kind] = 1
+            else:
+                loss_sums[kind] += batch_loss
+                loss_counts[kind] += 1
             if done == 1 or done % 100 == 0 or done == len(schedule):
+                count = sum(loss_counts.values())
                 row = {
                     "step": done,
-                    "loss": float(loss.detach()),
+                    "loss": float(batch_loss),
+                    "mean_loss": float(sum(loss_sums.values()) / count),
+                    "loss_by_source": {
+                        name: float(total / loss_counts[name])
+                        for name, total in loss_sums.items()
+                    },
+                    "loss_window_steps": count,
                     "gradient_norm": float(gradient.detach()),
                     "mean_abs_correction": float(
                         diagnostics["mean_abs_correction"].detach()
@@ -417,6 +433,8 @@ def main() -> int:
                 }
                 history.append(row)
                 print(json.dumps(row), flush=True)
+                loss_sums.clear()
+                loss_counts.clear()
             checkpoints = {len(schedule) // 2, len(schedule)}
             if done in checkpoints or done % 500 == 0 or STOP:
                 payload = {
