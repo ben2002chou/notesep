@@ -1,4 +1,4 @@
-"""Evaluate the paper checkpoints on the SCNS separation benchmark."""
+"""Evaluate NoteSep checkpoints on the SCNS separation benchmark."""
 
 import argparse
 import io

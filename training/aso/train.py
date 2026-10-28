@@ -67,12 +67,12 @@ def proposal_cache_identity(root: Path, separator_checkpoint: Path | None = None
     validation = json.loads(validation_path.read_text())
     if validation.get("schema") != "notesep_aso_proposals_v1":
         raise ValueError("Generate ASO estimates with training/prepare_aso.py")
-    from notesep.assets import CHECKPOINTS
+    from notesep.assets import CHECKPOINTS, PROFILES
 
     separator_sha = CHECKPOINTS["separator.pt"]
     if separator_checkpoint is not None:
         separator_sha = sha256(separator_checkpoint)
-        if separator_sha != CHECKPOINTS["separator.pt"]:
+        if separator_sha not in {pair["separator.pt"] for pair in PROFILES.values()}:
             from training.notegrab_recipe import validate_stage_checkpoint
             saved = torch.load(separator_checkpoint, map_location="cpu", weights_only=False)
             validate_stage_checkpoint(saved, "continuation", step=2500)

@@ -10,7 +10,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="NoteSep music editing tools")
     sub = parser.add_subparsers(dest="command", required=True)
     for command, help_text in [
-        ("download", "Download the paper checkpoint pair"),
+        ("download", "Download the released checkpoint pair"),
         ("verify", "Verify checkpoint SHA-256 values"),
     ]:
         item = sub.add_parser(command, help=help_text)

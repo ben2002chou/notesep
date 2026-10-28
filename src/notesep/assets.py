@@ -1,4 +1,4 @@
-"""Pinned checkpoint retrieval with byte-level verification."""
+"""Download and verify released NoteSep checkpoints."""
 
 import hashlib
 import os
@@ -6,18 +6,26 @@ from pathlib import Path
 import shutil
 
 PROFILES = {
+    "notesep-30k": {
+        "separator.pt": "fdfb5ed22455887225073ad45f5f832188f9bc91944e30b22f2721cd17749b70",
+        "aso.pt": "b31b3ca7fd2ab159ec859cf156f5bb52fe6012afc71b577e6c2a2f1a949f63e4",
+    },
     "paper-table1": {
         "separator.pt": "94f122e5335a60f6a2992f71454d3e561f3482017b2fe8d33abaf4dd3e286820",
         "aso.pt": "f6183cfcb02b32d5e29d4dc37deb3345b83dbac6095483348f177f1104853f06",
     },
 }
-CHECKPOINTS = PROFILES["paper-table1"]
-PAPER_REPOSITORY = "ben2002chou/notesep"
-PAPER_REVISION = "93d333118c49b407f37a226321a0896259599091"
+DEFAULT_PROFILE = "notesep-30k"
+CHECKPOINTS = PROFILES[DEFAULT_PROFILE]
+REPOSITORY = "ben2002chou/notesep"
+REVISIONS = {
+    "notesep-30k": "68d4e73eb4a420797b7a3e5dae5becbd8b732ebc",
+    "paper-table1": "93d333118c49b407f37a226321a0896259599091",
+}
 
 
 def model_profile(profile=None):
-    selected = profile or os.environ.get("NOTESEP_PROFILE", "paper-table1")
+    selected = profile or os.environ.get("NOTESEP_PROFILE", DEFAULT_PROFILE)
     if selected not in PROFILES:
         raise ValueError(f"Unknown model profile: {selected}")
     return selected
@@ -53,7 +61,7 @@ def verify(directory=None, *, profile=None):
 
 
 def download(directory=None, *, profile=None):
-    """Download and verify the pinned paper checkpoint pair."""
+    """Download and verify the selected checkpoint pair."""
     from huggingface_hub import hf_hub_download
 
     selected = model_profile(profile)
@@ -65,10 +73,10 @@ def download(directory=None, *, profile=None):
             continue
         cached = Path(
             hf_hub_download(
-                PAPER_REPOSITORY,
-                f"paper-table1/{name}",
+                REPOSITORY,
+                f"paper-table1/{name}" if selected == "paper-table1" else name,
                 repo_type="model",
-                revision=PAPER_REVISION,
+                revision=REVISIONS[selected],
             )
         )
         if sha256(cached) != expected:

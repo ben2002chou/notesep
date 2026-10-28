@@ -20,8 +20,13 @@ uv run notesep download
 ```
 
 The download command retrieves and checks both inference checkpoints. They are
-cached in `~/.cache/notesep/weights/paper-table1/`. Set `NOTESEP_WEIGHTS` to use
+cached in `~/.cache/notesep/weights/notesep-30k/`. Set `NOTESEP_WEIGHTS` to use
 another directory containing `separator.pt` and `aso.pt`.
+
+The default weights are the reproduced NoteGrab + 30,000-step ASO pair. The
+[original paper checkpoints](https://huggingface.co/ben2002chou/notesep/tree/paper-table1/paper-table1)
+remain available with `uv run notesep download --profile paper-table1` and
+`uv run notesep separate ... --profile paper-table1`.
 
 ## Inference
 
@@ -83,12 +88,14 @@ for disk requirements, data layouts and checkpoint outputs.
 
 ## Results
 
-Median SI-SDR on the original SCNS-Eval test set (3,473 notes):
+On the public SCNS-Eval test set (3,473 notes):
 
-| Model | SI-SDR (dB) ↑ |
-| --- | ---: |
-| Paper checkpoints | 7.39 |
-| Reproduced training, ASO at 30,000 steps | 7.49 |
+| Checkpoint pair | Median SI-SDR (dB) ↑ | Mean SI-SDR (dB) ↑ |
+| --- | ---: | ---: |
+| Paper | 7.44 | 7.28 |
+| Default (30k ASO) | 7.48 | 7.20 |
+
+On the original paper test set, the default pair scores **7.49 dB median SI-SDR**.
 
 ## Datasets
 
@@ -107,10 +114,10 @@ uv run notesep download-data --repo-id ben2002chou/notesep-benchmarks --output d
 `evaluation.json` describes note requests and scoring crops. `editing.json`
 contains the fixed gain, pitch, timing and tuning edits. Each `pieces/` folder
 has its mixture, aligned score and isolated-note archive. The public benchmark
-includes 11 replacement recordings; the released checkpoints score 7.44 dB
+includes 11 replacement recordings; the default checkpoints score 7.48 dB
 median SI-SDR on this version. Keep this benchmark out of training.
 
-To evaluate the paper checkpoints on SCNS-Eval:
+To evaluate the default checkpoints on SCNS-Eval:
 
 ```sh
 uv run python -m notesep.evaluate data/benchmark --output results/evaluation.json
