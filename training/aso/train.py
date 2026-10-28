@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from itertools import cycle, islice
 import json
 import math
 import os
@@ -66,12 +67,12 @@ def proposal_cache_identity(root: Path, separator_checkpoint: Path | None = None
     validation = json.loads(validation_path.read_text())
     if validation.get("schema") != "notesep_aso_proposals_v1":
         raise ValueError("Generate ASO estimates with training/prepare_aso.py")
-    from notesep.assets import CHECKPOINTS
+    from notesep.assets import CHECKPOINTS, PROFILES
 
     separator_sha = CHECKPOINTS["separator.pt"]
     if separator_checkpoint is not None:
         separator_sha = sha256(separator_checkpoint)
-        if separator_sha != CHECKPOINTS["separator.pt"]:
+        if separator_sha not in {pair["separator.pt"] for pair in PROFILES.values()}:
             from training.notegrab_recipe import validate_stage_checkpoint
             saved = torch.load(separator_checkpoint, map_location="cpu", weights_only=False)
             validate_stage_checkpoint(saved, "continuation", step=2500)
@@ -302,6 +303,10 @@ def main() -> int:
     )
     model, parent, _ = initialize(config, device)
     schedule, singleton_ids = dataset.make_schedule(authorities)
+    if not schedule:
+        raise ValueError("ASO training requires at least one training mixture")
+    # Repeat the data in the same order until the update budget is reached.
+    schedule = list(islice(cycle(schedule), 30000))
     maximum_mixtures = 0
 
     parity_kind, parity_index = next(

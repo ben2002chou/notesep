@@ -94,8 +94,8 @@ function stop(keepTime=true){
   model.playing=false;
   cancelAnimationFrame(model.timer);
   for(const node of model.nodes){
-    try{if(node.stop)node.stop();}catch{}
-    try{node.disconnect();}catch{}
+    try{if(node.stop)node.stop();}catch(error){console.warn('Could not stop an audio node.',error);}
+    try{node.disconnect();}catch(error){console.warn('Could not disconnect an audio node.',error);}
   }
   model.nodes=[];
   model.audition=null;

@@ -15,7 +15,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-from notesep.assets import CHECKPOINTS, sha256, weights_directory  # noqa: E402
+from notesep.assets import PROFILES, sha256, weights_directory  # noqa: E402
 from notesep.models.hpss import project_hpss_batch  # noqa: E402
 from notesep.models.hpss_separator import (  # noqa: E402
     occurrence_dual_hpss_separator_from_contract,
@@ -135,10 +135,10 @@ def infer_notes(
 
 
 def load_separator(checkpoint: Path, device: torch.device):
-    """Load the paper checkpoint or its verified retrained counterpart."""
+    """Load released NoteGrab weights or a checkpoint from the training recipe."""
     separator_sha = sha256(checkpoint)
     payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    if separator_sha != CHECKPOINTS["separator.pt"]:
+    if separator_sha not in {pair["separator.pt"] for pair in PROFILES.values()}:
         from training.notegrab_recipe import validate_stage_checkpoint
         validate_stage_checkpoint(payload, "continuation", step=2500)
     model = occurrence_dual_hpss_separator_from_contract(payload["model_contract"])
