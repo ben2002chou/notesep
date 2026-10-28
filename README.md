@@ -88,14 +88,12 @@ for disk requirements, data layouts and checkpoint outputs.
 
 ## Results
 
-On the public SCNS-Eval test set (3,473 notes):
+Default checkpoints on the public SCNS-Eval test set (3,473 notes):
 
-| Checkpoint pair | Median SI-SDR (dB) ↑ | Mean SI-SDR (dB) ↑ |
-| --- | ---: | ---: |
-| Paper | 7.44 | 7.28 |
-| Default (30k ASO) | 7.48 | 7.20 |
-
-On the original paper test set, the default pair scores **7.49 dB median SI-SDR**.
+| Model | Median SI-SDR (dB) ↑ |
+| --- | ---: |
+| NoteGrab (pre-ASO) | 5.46 |
+| NoteSep (post-ASO) | 7.48 |
 
 ## Datasets
 
@@ -113,9 +111,8 @@ uv run notesep download-data --repo-id ben2002chou/notesep-benchmarks --output d
 
 `evaluation.json` describes note requests and scoring crops. `editing.json`
 contains the fixed gain, pitch, timing and tuning edits. Each `pieces/` folder
-has its mixture, aligned score and isolated-note archive. The public benchmark
-includes 11 replacement recordings; the default checkpoints score 7.48 dB
-median SI-SDR on this version. Keep this benchmark out of training.
+has its mixture, aligned score and isolated-note archive. Keep this benchmark
+out of training.
 
 To evaluate the default checkpoints on SCNS-Eval:
 
