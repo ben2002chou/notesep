@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from itertools import cycle, islice
 import json
 import math
 import os
@@ -302,9 +303,10 @@ def main() -> int:
     )
     model, parent, _ = initialize(config, device)
     schedule, singleton_ids = dataset.make_schedule(authorities)
-    if len(schedule) != 29058:
-        raise ValueError("Unexpected ASO training schedule")
-    schedule.extend(schedule[: 30000 - len(schedule)])
+    if not schedule:
+        raise ValueError("ASO training requires at least one training mixture")
+    # Repeat the data in the same order until the update budget is reached.
+    schedule = list(islice(cycle(schedule), 30000))
     maximum_mixtures = 0
 
     parity_kind, parity_index = next(

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import re
@@ -45,6 +47,8 @@ from notesep.project_archive import (
     MAX_PROJECT_BYTES,
 )
 
+logger = logging.getLogger(__name__)
+
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "studio_static"
 RUNTIME = Path(os.environ.get("NOTESEP_RUNTIME", Path("/tmp") / "notesep-studio"))
@@ -81,7 +85,7 @@ def cleanup_loop():
         try:
             cleanup()
         except OSError:
-            pass
+            logger.warning("Could not clean up expired Studio sessions", exc_info=True)
 
 
 threading.Thread(
@@ -125,7 +129,7 @@ def decode_base64(data: str, limit: int) -> bytes:
     payload = data.partition(",")[2] if data.startswith("data:") else data
     try:
         decoded = base64.b64decode(payload, validate=True)
-    except Exception as error:
+    except (binascii.Error, ValueError) as error:
         raise ValueError("Invalid file data") from error
     if not decoded or len(decoded) > limit:
         raise ValueError("File is empty or too large")

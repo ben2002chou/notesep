@@ -1573,24 +1573,18 @@ def main(argv: list[str] | None = None) -> None:
                     and global_step % media_every == 0
                     and callable(media_builder)
                 ):
-                    try:
-                        media = media_builder(
-                            model,
-                            monitor_loader,
-                            device=device,
-                            autocast=autocast,
-                            wandb=wandb,
-                        )
-                        wandb_run.log(media, step=global_step)
-                        print(
-                            f"MONITOR_MEDIA step={global_step} uploaded=true keys={len(media)}",
-                            flush=True,
-                        )
-                    except Exception as error:
-                        print(
-                            f"MONITOR_MEDIA_WARNING {type(error).__name__}: {error}",
-                            flush=True,
-                        )
+                    media = media_builder(
+                        model,
+                        monitor_loader,
+                        device=device,
+                        autocast=autocast,
+                        wandb=wandb,
+                    )
+                    wandb_run.log(media, step=global_step)
+                    print(
+                        f"MONITOR_MEDIA step={global_step} uploaded=true keys={len(media)}",
+                        flush=True,
+                    )
             score = validation_spectral_score(aggregate_validation)
             if score < best_score:
                 best_score = score
