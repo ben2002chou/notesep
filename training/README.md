@@ -92,9 +92,10 @@ endpoints for training. All cached estimates are checked before use; the cache
 must come from the checkpoint supplied to ASO training. Estimates cover only the
 training and validation selections.
 
-ASO runs 29,058 updates. It saves `RESUME.pt` for automatic resume and
-`checkpoint-step-029058.pt` at the final step. Repeating its command resumes an
-interrupted run.
+ASO runs 30,000 updates. After one pass through the training schedule, it
+repeats its first 942 mixtures. It saves `RESUME.pt` for automatic resume and
+`checkpoint-step-030000.pt` at the final step. Repeating its command resumes an
+interrupted run. The published paper checkpoint was trained for 29,058 updates.
 
 ## Use the trained models
 
@@ -103,7 +104,7 @@ Place the selected NoteGrab and final ASO checkpoints in one folder:
 ```sh
 mkdir -p outputs/weights
 cp outputs/notegrab/continuation/training/checkpoints/step-000002500.pt outputs/weights/separator.pt
-cp outputs/aso/checkpoint-step-029058.pt outputs/weights/aso.pt
+cp outputs/aso/checkpoint-step-030000.pt outputs/weights/aso.pt
 uv run notesep separate src/notesep/studio_static/examples/mixture.wav \
   --score src/notesep/studio_static/examples/score.mid \
   --weights outputs/weights --output outputs/separated

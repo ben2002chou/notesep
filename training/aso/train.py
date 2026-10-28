@@ -302,6 +302,9 @@ def main() -> int:
     )
     model, parent, _ = initialize(config, device)
     schedule, singleton_ids = dataset.make_schedule(authorities)
+    if len(schedule) != 29058:
+        raise ValueError("Unexpected ASO training schedule")
+    schedule.extend(schedule[: 30000 - len(schedule)])
     maximum_mixtures = 0
 
     parity_kind, parity_index = next(
